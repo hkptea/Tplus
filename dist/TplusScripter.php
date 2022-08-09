@@ -345,8 +345,9 @@ const SPACE     = 0;
 const OPERAND   = 1;
 const OPERATOR  = 2;
 const UNARY     = 4;
-const OPEN      = 8;
-const CLOSE     = 16;
+const BI_UNARY  = 8;
+const OPEN      = 16;
+const CLOSE     = 32;
 
 const TOKEN = [
     SPACE => [
@@ -360,29 +361,32 @@ const TOKEN = [
         'Quoted'=>'(?:"(?:\\\\.|[^"])*")|(?:\'(?:\\\\.|[^\'])*\')',
     ],
     OPERATOR => [
-        'Comparison'=> '===?|!==?|<<?|>>?|<=|>=', // to pairStack  comparision flag on
+        'Xcrement'  => '\+\+|--', // throw
+        'ArithOrBit'=> '[%*/&|\^]|<<|>>', // can follows quoted?? <<
+        'Comparison'=> '===?|!==?|<|>|<=|>=', // to pairStack  comparision flag on
         'Logic'     => '&&|\|\|',                   // comparision flag off
+        'Elvis'     => '\?:|\?\?',
         'TernaryIf' => '\?',                        // comparision flag off
         'TernaryElseOrKeyEnd'=>':',                 // comparision flag off
-        'ArithOrBit'=> '[%*/&|\^]', // can follows quoted?? <<
-        'Elvis'     => '\?:|\?\?',
         'Comma'     => ',',
-        'Increment' => '\+\+|--', // throw
     ],
     UNARY => [
         'Unary' =>'~|!',
-        'Plus'  => '\+',    // Unary or Binary
-        'Minus' => '-',     // Unary or Binary
-        'Dot'   =>'\.+'     // Unary or Binary
+    ],
+    BI_UNARY => [
+        'Plus'  => '\+',
+        'Minus' => '-', 
+        'Dot'   =>'\.+' 
     ],
     OPEN => [
         'ParenthesisOpen'=>'\(',
-        'IndexerOrJsonOpen'=>'[\[{]'
-        
+        'BraceOpen'=>'{',
+        'BracketOpen'=>'\[',        
     ],
     CLOSE => [
         'ParenthesisClose'=>'\)',
-        'IndexerOrJsonClose'=>'[\]}]'
+        'BraceClose'=>'}',
+        'BracketClose'=>'\]',   
     ]
 ];
 
@@ -407,17 +411,15 @@ class Expression {
             ...
     */
     private static $prevToken;
-    private static $caseAvailable;
 
     private $scriptTokens;
     private $dotNameQ;
 
     public static function script($caseAvailable=false, $test=null) {
-        self::$caseAvailable = $caseAvailable;
 
         if ($test) {
             //self::$tokenStack = $test['tokenStack'];
-            return call_user_func_array([$this, $test['func']], $test['args']);
+            return call_user_func_array([new self(), $test['func']], $test['args']);
         }
 
         self::$pairStack = new Stack;
@@ -425,11 +427,11 @@ class Expression {
         
         
         $expression = new Expression();
-        $expression->parse($test);
+        $expression->parse($caseAvailable);
         return $expression->assembleScriptTokens();
     }
     
-    private function parse() {
+    private function parse($caseAvailable=false) {
 
 
         $this->dotNameQ = new DotNameQ;
