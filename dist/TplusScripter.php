@@ -341,16 +341,15 @@ class Statement {
 /**  Expression */
 
 
-// OPERAND|OPERATOR|UNARY|PLUS_MINUS|DOT|OPEN|CLOSE
+// OPERAND|OPERATOR|UNARY|BI_UNARY|OPEN|CLOSE
 
 const SPACE     = 0;
 const OPERAND   = 1;
 const OPERATOR  = 2;
 const UNARY     = 4;
-const PLUS_MINUS= 8;
-const DOT       = 16;
-const OPEN      = 32;
-const CLOSE     = 64;
+const BI_UNARY  = 8;
+const OPEN      = 16;
+const CLOSE     = 32;
 
 const TOKEN = [
     SPACE => [
@@ -376,11 +375,9 @@ const TOKEN = [
     UNARY => [
         'Unary' =>'~|!',
     ],
-    PLUS_MINUS => [
+    BI_UNARY => [
         'Plus'  => '\+',
-        'Minus' => '-'
-    ],
-    DOT => [
+        'Minus' => '-',
         'Dot'   =>'\.+' 
     ],
     OPEN => [
@@ -418,9 +415,7 @@ class Expression {
     */
 
     private $scriptTokens=[];
-    //private $isPrevUnary=false; // prohibit quoted after unary + - ~ ! 
     private $dotNameQ;
-
 
     public static function script($caseAvailable=false, $test=null) {
 
@@ -486,7 +481,7 @@ class Expression {
                             throw new SyntaxError('Unexpected '.$token);
                         }
                     }
-                    if (DOT === $prevTokenGroup and $tokenName !== 'Name') {
+                    if ($prevTokenName === 'Dot' and $tokenName !== 'Name') {
                         throw new SyntaxError('Unexpected '.$token);
                     }
                    
@@ -506,12 +501,6 @@ class Expression {
 
             $this->scriptTokens[] = $scriptToken;
 
-            // $this->setUnaryState($tokenGroup, $prevTokenGroup);
-
-            /*if ( !$this->dotNameQ->isEmpty() and !in_array($tokenName, ['Dot', 'Name']) ) {
-                $this->scriptTokens[] = $this->dotNameQ->flush();
-            }*/
-            
             $prevTokenGroup = $tokenGroup;
             $prevTokenName  = $tokenName;
         }
@@ -548,9 +537,6 @@ class Expression {
     }
 
     private function parseQuoted($token, $prevTokenGroup, $prevTokenName) {
-        /*if ($this->isPrevUnary) {
-            throw new SyntaxError('Unexpected '.$token);
-        }*/
         return $token;
     }
 
@@ -567,27 +553,6 @@ class Expression {
     private function parseUnary($token) {
         return ' '.$token;
     }
-    /*private function setUnaryState($tokenGroup, $prevTokenGroup) {
-        if ($this->isPrevUnary) {
-            if (! ($tokenGroup & (UNARY|PLUS_MINUS))) {
-                $this->isPrevUnary = false;
-            }
-        } else {
-            if ($tokenGroup === UNARY) {
-                $this->isPrevUnary = true;
-            }
-            if ($tokenGroup === PLUS_MINUS) {
-                // [ UNARY|DOT|OPERAND|CLOSE  |  OPERATOR|PLUS_MINUS|OPEN ]
-                // if UNARY, $isPrevUnary is already true.
-                // if DOT, already thrown.
-                // if OPERAND|CLOSE, + - are binary operator.
-                // OPERATOR|PLUS_MINUS|OPEN remain.
-                if (!$prevTokenGroup or $prevTokenGroup & (OPERATOR|PLUS_MINUS|OPEN)) {
-                    $this->isPrevUnary = true;
-                }       
-            }
-        }
-    }*/
 
     private function parseDot($token, $prevTokenGroup, $prevTokenName) {
         if ($prevTokenGroup & (OPERAND|CLOSE)) {
