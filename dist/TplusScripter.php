@@ -341,13 +341,16 @@ class Statement {
 /**  Expression */
 
 
+// OPERAND|OPERATOR|UNARY|PLUS_MINUS|DOT|OPEN|CLOSE
+
 const SPACE     = 0;
 const OPERAND   = 1;
 const OPERATOR  = 2;
 const UNARY     = 4;
-const BI_UNARY  = 8;
-const OPEN      = 16;
-const CLOSE     = 32;
+const PLUS_MINUS= 8;
+const DOT       = 16;
+const OPEN      = 32;
+const CLOSE     = 64;
 
 const TOKEN = [
     SPACE => [
@@ -361,21 +364,23 @@ const TOKEN = [
         'Quoted'=>'(?:"(?:\\\\.|[^"])*")|(?:\'(?:\\\\.|[^\'])*\')',
     ],
     OPERATOR => [
-        'Xcrement'  => '\+\+|--', // throw
-        'ArithOrBit'=> '[%*/&|\^]|<<|>>', // can follows quoted?? <<
-        'Comparison'=> '===?|!==?|<|>|<=|>=', // to pairStack  comparision flag on
-        'Logic'     => '&&|\|\|',                   // comparision flag off
+        'Xcrement'  => '\+\+|--',
+        'ArithOrBit'=> '[%*/&|\^]|<<|>>',           // check quoted
+        'Comparison'=> '===?|!==?|<|>|<=|>=',       // check a == b == c
+        'Logic'     => '&&|\|\|',                   
         'Elvis'     => '\?:|\?\?',
-        'TernaryIf' => '\?',                        // comparision flag off
-        'TernaryElseOrKeyEnd'=>':',                 // comparision flag off
+        'TernaryIf' => '\?',                        
+        'TernaryElseOrKeyEnd'=>':',                 
         'Comma'     => ',',
     ],
     UNARY => [
         'Unary' =>'~|!',
     ],
-    BI_UNARY => [
+    PLUS_MINUS => [
         'Plus'  => '\+',
-        'Minus' => '-', 
+        'Minus' => '-'
+    ],
+    DOT => [
         'Dot'   =>'\.+' 
     ],
     OPEN => [
@@ -403,17 +408,19 @@ class Expression {
     */
     private static $pairStack;
 
-    /**
+    /*
             F   (function closed)   )[123]  ).123   ).abc   ).abc(    (
             J   (JSON closed)
             I   (Indexer closed)    ][   ].abc   ].123   }{   }.abc   }.123 
             :   (need following operand)
             ...
+        private static $prevToken;
     */
-    private static $prevToken;
 
-    private $scriptTokens;
+    private $scriptTokens=[];
+    //private $isPrevUnary=false; // prohibit quoted after unary + - ~ ! 
     private $dotNameQ;
+
 
     public static function script($caseAvailable=false, $test=null) {
 
@@ -423,8 +430,7 @@ class Expression {
         }
 
         self::$pairStack = new Stack;
-        self::$unaryPlusMinus = false;
-        
+      
         
         $expression = new Expression();
         $expression->parse($caseAvailable);
@@ -469,18 +475,18 @@ class Expression {
                     Scripter::decreaseUserCode($token);
 
                     if (SPACE === $tokenGroup) {
-                        Scripter::decreaseUserCode($token);
                         continue 3;
                     }
-                    if (OPERAND === $tokenGroup
-                        and  $prevTokenGroup & (OPERAND|CLOSE)) {
-                        throw new SyntaxError('Unexpected '.$token);
+                    if ( $prevTokenGroup & (OPERAND|CLOSE) ) {
+                        if ($tokenGroup & (OPERAND|UNARY) ) {
+                            throw new SyntaxError('Unexpected '.$token);
+                        }
+                    } else {
+                        if ( $tokenGroup === OPERATOR ) {
+                            throw new SyntaxError('Unexpected '.$token);
+                        }
                     }
-                    if (OPERATOR === $tokenGroup 
-                        and  !$prevTokenGroup || $prevTokenGroup&(OPERATOR|OPEN|UNARY)) {
-                        throw new SyntaxError('Unexpected '.$token);
-                    }
-                    if ('Unary' == $tokenName  and  $prevTokenGroup & (OPERAND|CLOSE)) {
+                    if (DOT === $prevTokenGroup and $tokenName !== 'Name') {
                         throw new SyntaxError('Unexpected '.$token);
                     }
                    
@@ -500,21 +506,15 @@ class Expression {
 
             $this->scriptTokens[] = $scriptToken;
 
-            if (self::$unaryPlusMinus and !in_array($tokenName, ['Plus', 'Minus'])) {
-                self::$unaryPlusMinus = false;
-            }
+            // $this->setUnaryState($tokenGroup, $prevTokenGroup);
 
-            if ( !$this->dotNameQ->isEmpty() and !in_array($tokenName, ['Dot', 'Name']) ) {
+            /*if ( !$this->dotNameQ->isEmpty() and !in_array($tokenName, ['Dot', 'Name']) ) {
                 $this->scriptTokens[] = $this->dotNameQ->flush();
-            }
+            }*/
             
             $prevTokenGroup = $tokenGroup;
             $prevTokenName  = $tokenName;
         }
-
-        //return self::$linesInExpression;
-        //return [implode('', $this->scriptTokens), self::$linesInExpression];
-        //return $this->assembleScript();
     } 
 
     private function assembleScriptTokens() {
@@ -542,6 +542,53 @@ class Expression {
         
         $this->dotNameQ->enqueue($token);        
     }
+
+    private function parseNumber($token) {
+        return $token;
+    }
+
+    private function parseQuoted($token, $prevTokenGroup, $prevTokenName) {
+        /*if ($this->isPrevUnary) {
+            throw new SyntaxError('Unexpected '.$token);
+        }*/
+        return $token;
+    }
+
+    private function parsePlus($token, $prevTokenGroup, $prevTokenName) {
+        if ($prevTokenName == 'Quoted') {
+            return '.';
+        }
+
+        return ' +';
+    }
+    private function parseMinus($token, $prevTokenGroup) {
+        return ' -';
+    }
+    private function parseUnary($token) {
+        return ' '.$token;
+    }
+    /*private function setUnaryState($tokenGroup, $prevTokenGroup) {
+        if ($this->isPrevUnary) {
+            if (! ($tokenGroup & (UNARY|PLUS_MINUS))) {
+                $this->isPrevUnary = false;
+            }
+        } else {
+            if ($tokenGroup === UNARY) {
+                $this->isPrevUnary = true;
+            }
+            if ($tokenGroup === PLUS_MINUS) {
+                // [ UNARY|DOT|OPERAND|CLOSE  |  OPERATOR|PLUS_MINUS|OPEN ]
+                // if UNARY, $isPrevUnary is already true.
+                // if DOT, already thrown.
+                // if OPERAND|CLOSE, + - are binary operator.
+                // OPERATOR|PLUS_MINUS|OPEN remain.
+                if (!$prevTokenGroup or $prevTokenGroup & (OPERATOR|PLUS_MINUS|OPEN)) {
+                    $this->isPrevUnary = true;
+                }       
+            }
+        }
+    }*/
+
     private function parseDot($token, $prevTokenGroup, $prevTokenName) {
         if ($prevTokenGroup & (OPERAND|CLOSE)) {
             //@if dot of method or dot of array element
@@ -552,50 +599,14 @@ class Expression {
             if ( $prevTokenGroup == CLOSE ) {   //@if dot after pair close
                 $this->dotNameQ->describe(DotNameQ::CHAIN);
 
-            } else { //@if $prevTokenGroup is OPERAND
-                if ($prevTokenName !== 'Name') {//@if prev token is Number or Quoted,
-                    throw new SyntaxError('Unexpected '.$token);
-                }
             }
 
         } else { //@if dot of loop element
-            if ($prevTokenName == 'Dot') {
-                throw new SyntaxError('Unexpected '.$token);
-            }
 
             $this->dotNameQ->describe(DotNameQ::LOOP);
         }
 
         $this->dotNameQ->enqueue($token);
-    }
-
-    private static function parseNumber($token) {
-        return $token;
-    }
-
-    private static function parseQuoted($token, $prevTokenGroup, $prevTokenName) {
-        if (self::$unaryPlusMinus) {    //@todo when to reset?
-            throw new SyntaxError('Unexpected '.$token);
-        }
-        return $token;
-    }
-
-    private static function parsePlus($token, $prevTokenGroup, $prevTokenName) {
-        if ($prevTokenGroup & (OPERAND|CLOSE) and $prevTokenName == 'Quoted') {
-            return '.';
-        }
-
-        return _parsePlusMinus($token, $prevTokenGroup);
-    }
-    private static function parseMinus($token, $prevTokenGroup) {
-        return _parsePlusMinus($token, $prevTokenGroup);
-    }
-    private static function _parsePlusMinus($token, $prevTokenGroup) {
-        if ($prevTokenGroup & (OPERATOR|UNARY|OPEN) ) {
-            self::$unaryPlusMinus = true;
-            return ' '.$token;
-        }
-        return $token;
     }
 }
 
