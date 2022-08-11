@@ -415,7 +415,8 @@ class Expression {
     */
 
     private $scriptTokens=[];
-    private $dotNameQ;
+    private $isPrevUnary=false;
+    //private $dotNameQ;
 
     public static function script($caseAvailable=false, $test=null) {
 
@@ -459,8 +460,8 @@ class Expression {
             }
 
             $token = null;
-            foreach (self::TOKEN as $tokenGroup => $tokenNames) {
-                foreach ($tokenNames as $tokenName => $pattern) {
+            foreach (self::TOKEN as $currTokenGroup => $tokenNames) {
+                foreach ($tokenNames as $currTokenName => $pattern) {
                     $pattern = '#^('.$pattern.')#s';
                     if (!preg_match($pattern, Scripter::$userCode, $match)) {
                         continue;
@@ -469,19 +470,19 @@ class Expression {
                     $token = $match[1];
                     Scripter::decreaseUserCode($token);
 
-                    if (SPACE === $tokenGroup) {
+                    if (SPACE === $currTokenGroup) {
                         continue 3;
                     }
                     if ( $prevTokenGroup & (OPERAND|CLOSE) ) {
-                        if ($tokenGroup & (OPERAND|UNARY) ) {
+                        if ($currTokenGroup & (OPERAND|UNARY) ) {
                             throw new SyntaxError('Unexpected '.$token);
                         }
                     } else {
-                        if ( $tokenGroup === OPERATOR ) {
+                        if ( $currTokenGroup === OPERATOR ) {
                             throw new SyntaxError('Unexpected '.$token);
                         }
                     }
-                    if ($prevTokenName === 'Dot' and $tokenName !== 'Name') {
+                    if ($prevTokenName === 'Dot' and $currTokenName !== 'Name') {
                         throw new SyntaxError('Unexpected '.$token);
                     }
                    
@@ -492,17 +493,23 @@ class Expression {
                 throw new SyntaxError('Invalid template expression.');
             }
 
-            $scriptToken = $this->{'parse'.$tokenName}($token, $prevTokenGroup, $prevTokenName);
+            $scriptToken = $this->{'parse'.$currTokenName}($token, $prevTokenGroup, $prevTokenName);
 
-            if ($prevTokenName == 'Plus' and $tokenName == 'Quoted') {
+            if ($prevTokenName == 'Plus' and $currTokenName == 'Quoted') {
                 array_pop($this->scriptTokens);
                 $this->scriptTokens[] = '.';
             }
 
             $this->scriptTokens[] = $scriptToken;
 
-            $prevTokenGroup = $tokenGroup;
-            $prevTokenName  = $tokenName;
+            $this->setUnaryState($currTokenGroup, $prevTokenGroup);
+
+            /*if ( !$this->dotNameQ->isEmpty() and !in_array($currTokenName, ['Dot', 'Name']) ) {
+                $this->scriptTokens[] = $this->dotNameQ->flush();
+            }*/
+
+            $prevTokenGroup = $currTokenGroup;
+            $prevTokenName  = $currTokenName;
         }
     } 
 
@@ -537,15 +544,14 @@ class Expression {
     }
 
     private function parseQuoted($token, $prevTokenGroup, $prevTokenName) {
+        if ($this->isPrevUnary) {
+            throw new SyntaxError('Unexpected '.$token);
+        }
         return $token;
     }
 
     private function parsePlus($token, $prevTokenGroup, $prevTokenName) {
-        if ($prevTokenName == 'Quoted') {
-            return '.';
-        }
-
-        return ' +';
+        return ($prevTokenName == 'Quoted') ? '.' : ' +';
     }
     private function parseMinus($token, $prevTokenGroup) {
         return ' -';
@@ -553,13 +559,38 @@ class Expression {
     private function parseUnary($token) {
         return ' '.$token;
     }
+    private function setUnaryState($currTokenGroup, $prevTokenGroup) {
+        if ($this->isPrevUnary) {
+            if (! ($currTokenGroup & (UNARY|BI_UNARY))) {
+                $this->isPrevUnary = false;
+            }
+        } else {
+            if ($currTokenGroup === UNARY) {
+                $this->isPrevUnary = true;
 
+            } else if ($currTokenGroup === BI_UNARY) {
+                // [ UNARY|OPERAND|CLOSE  |  OPERATOR|BI_UNARY|OPEN ]
+                // if UNARY, $isPrevUnary is already true.
+                // if OPERAND|CLOSE, + - are binary operator.
+                // OPERATOR|PLUS_MINUS|OPEN remain.
+                if (!$prevTokenGroup or $prevTokenGroup & (OPERATOR|BI_UNARY|OPEN)) {
+                    $this->isPrevUnary = true;
+                }       
+            }
+        }
+    }      
     private function parseDot($token, $prevTokenGroup, $prevTokenName) {
-        if ($prevTokenGroup & (OPERAND|CLOSE)) {
-            //@if dot of method or dot of array element
-            if (strlen($token) > 1) {
+        if ($prevTokenGroup==DOT) {
+            throw new SyntaxError('Unexpected space between dot');
+        }
+        if (strlen($token) > 1) {
+            if ($prevTokenGroup & (OPERAND|CLOSE)) {
                 throw new SyntaxError('Unexpected '.$token);
             }
+        }
+
+        /*
+            //@if dot of method or dot of array element
             
             if ( $prevTokenGroup == CLOSE ) {   //@if dot after pair close
                 $this->dotNameQ->describe(DotNameQ::CHAIN);
@@ -572,6 +603,7 @@ class Expression {
         }
 
         $this->dotNameQ->enqueue($token);
+        */
     }
 }
 
