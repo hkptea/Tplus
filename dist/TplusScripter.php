@@ -401,8 +401,8 @@ class Expression {
 
     /**
        f p i j I J ?  
-       Above 7 openers create new expression instance.
-       : and , are not openers but create new expression instance.
+       Above 7 openers create new expression object.
+       : and , are not openers but create new expression object.
      */
     private $opener = '';           
     private $scriptTokens = [];
@@ -427,7 +427,7 @@ class Expression {
 
         $prevTokenGroup = 0;
         $prevTokenName  = '';
-        $isUnaryAttached= false; //'';
+        $isUnaryAttached= false; 
         
         for (;;) {
             if (!Scripter::$userCode) {
@@ -466,12 +466,13 @@ class Expression {
                     if ($currTokenGroup === SPACE) {
                         continue 3;
                     }
-                    if ( $prevTokenGroup & (OPERAND|CLOSE) ) {
+                    if ( $prevTokenGroup & (OPERAND|CLOSE) ) {  
                         if ($currTokenGroup & (OPERAND|UNARY) ) {
+                            //@note CLOSE before OPEN is processed by according method.
                             throw new SyntaxError('Unexpected '.$token);
                         }
                     } else {    
-                        // [DOT|OPERATOR|O_OPERATOR|OPEN|UNARY|BI_UNARY] 
+                        //@if $prevTokenGroup is DOT|OPERATOR|O_OPERATOR|OPEN|UNARY|BI_UNARY
                         if ( $currTokenGroup & (OPERATOR|O_OPERATOR|CLOSE) ) {
                             //@note If $currTokenGroup is CLOSE, $prevTokenGroup is always OPERAND. {#REF}
                             throw new SyntaxError('Unexpected '.$token);
