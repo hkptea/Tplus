@@ -43,7 +43,7 @@ class Tpl {
 }
 
 
-class TplusValWrapper extends TplusValWrapperBase {
+class TplValWrapper extends TplusValWrapper {
 
 	protected $val;
 
@@ -51,10 +51,7 @@ class TplusValWrapper extends TplusValWrapperBase {
 		if (is_array($this->val)) {
 			return shuffle($this->val);
 		}
-		if (!is_string($this->val)) {
-			$this->val = (string)$this->val;
-		}
-		return str_shuffle($this->val);
+		return str_shuffle((string)$this->val);
 	}
 
 	public function average() {
@@ -65,9 +62,20 @@ class TplusValWrapper extends TplusValWrapperBase {
 			'average() method called on unsupported type '.gettype($this->val)
 		);
 	}
+
+	public function format($decimals, $decimal_separator, $thousands_seperator) {
+		if (is_array($this->val)) {
+			$arr = [];
+			foreach ($this->val as $n) {
+				$arr[]=number_format((float)$n, $decimals, $decimal_separator, $thousands_seperator);
+			}
+			return $arr;
+		}
+		return number_format((float)$this->val, $decimals, $decimal_separator, $thousands_seperator);
+	}
 }
 
-class TplusLoopHelper extends TplusLoopHelperBase {
+class TplLoopHelper extends TplusLoopHelper {
 
 	protected $i;
 	protected $s;

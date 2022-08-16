@@ -89,7 +89,7 @@ class Tplus {
     }
 }
 
-class TplusValWrapperBase {
+class TplusValWrapper {
 
     public static function o($val) {
         if (is_object($val)) {
@@ -127,7 +127,7 @@ class TplusValWrapperBase {
     }
 }
 
-class TplusLoopHelperBase {
+class TplusLoopHelper {
 
     protected $instance;
     public static function o($i, $s, $k, $v) {
