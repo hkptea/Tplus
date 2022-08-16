@@ -35,16 +35,21 @@ namespace Tplus;
 
 class Scirpter {
     
-    private static $config;
+    //private static $config;
     private static $currentLine = 1;
-    public  static $userCode;
+
+    public static $userCode;
+    public static $valWrapper;
+    public static $loopHelper;
 
     public static function script($htmlPath, $scriptPath, $scriptRoot, $scriptSizePad, $config, $test=null) {
         if ($test) {
             return call_user_func_array([self::class, $test['func']], $test['args']);
         }
     
-        self::$config = $config;
+        //self::$config = $config;
+        self::$valWrapper = @'\\'.(self::$config['ValWrapper'] ?: 'TplValWrapper');
+        self::$loopHelper = @'\\'.(self::$config['LoopHelper'] ?: 'TplLoopHelper');
         self::$userCode = self::getHtml($htmlPath);
         self::saveScriptResult($scriptPath, self::parse()); 
     }
@@ -55,27 +60,31 @@ class Scirpter {
     }
 
     public static function getValWrapperMethods() {
-        // @todo config.ValWrapper for multi config.
         static $methods=[];
         if (empty($methods)) {
-            $methods = self::getMethods(@ self::$config['ValWrapper'] ?: 'TplValWrapper');
+            if (!class_exists(self::$valWrapper)) {
+                throw new SyntaxError('val wrapper class "'.substr(self::$valWrapper, 1).'" does not exist.');
+            }
+            $methods = self::getMethods(self::$valWrapper);
         }
         return $methods;
     }
     public static function getLoopHelperMethods() {
-        // @todo config.LoopHelper for multi config.
         static $methods=[];
         if (empty($methods)) {
-            $methods = self::getMethods(@ self::$config['LoopHelper'] ?: 'TplLoopHelper');
+            if (!class_exists('\\'.self::$valWrapper)) {
+                throw new SyntaxError('loop helper class "'.substr(self::$loopHelper, 1).'" does not exist.');
+            }
+            $methods = self::getMethods(self::$loopHelper);
         }
         return $methods;
     }
-    public static function getMethods() {
+    public static function getMethods($class) {
         $methods = [];
-        $info = (new ReflectionClass('TplusValWrapper'))->getMethods();
+        $info = (new ReflectionClass($class))->getMethods();
         foreach ($info as $o) {
-            if (!in_array($o->name,['o', '__construct'])) {
-                $methods[] = $o->name;
+            if ($o->name[0] !== '_') {
+                $methods[] = strtolower($o->name);
             }
         }
         return $methods;
@@ -316,13 +325,13 @@ class Statement {
         $loopDepth = self::$commandStack->count('@');
         $expressionScript = Expression::script();
 
-        [$arr, $i, $s, $k, $v] = self::nameLoop($loopDepth);
+        [$a, $i, $s, $k, $v] = self::loopNames($loopDepth);
 
-        $statementScript = $arr.'='.$expressionScript.';'
-            .'if ( is_array('.$arr.') and !empty('.$arr.') ) {'
-                .$s.'=count('.$arr.');'
+        $statementScript = $a.'='.$expressionScript.';'
+            .'if ( is_array('.$a.') and !empty('.$a.') ) {'
+                .$s.'=count('.$a.');'
                 .$i.'=-1;'
-                .'foreach('.$arr.' as '.$k.'=>'.$v.') {'
+                .'foreach('.$a.' as '.$k.'=>'.$v.') {'
                     .' ++'.$i.';';
         $statementScript = '<?php '.preg_replace('#\s+#s', '', $statementScript).'?>';
 
@@ -352,10 +361,16 @@ class Statement {
     
         Scripter::decreaseUserCode($match[0]);
     }
-    public static function nameLoop($depth, $keyword='') {
-        $arr = '$LOOP_'.$depth;
-        $names = [$arr, 'i'=>$arr.'_I', 's'=>$arr.'_S', 'k'=>$arr.'_K', 'v'=>$arr.'_V'];
-        return $keyword ? $names[$keyword] : array_values($names);
+    public static function loopName($depth, $keyword='') {
+        return self::loopNames($depth)[$keyword];
+    }
+    public static function loopNames($depth) {
+        static $names=[];
+        if (empty($names[$depth])) {
+            $name = '$L'.$depth;  // $L1, $L1_I, $L2_I, $L1_S, ...
+            $names[$depth] = ['a'=>$name, 'i'=>$name.'_I', 's'=>$name.'_S', 'k'=>$name.'_K', 'v'=>$name.'_V'];
+        }
+        $names[$depth];
     }
 }
 
@@ -583,6 +598,43 @@ class Expression {
         if ($this->staticStartIndex === INIT and $prevTokenGroup !== DOT) {
             $this->staticStartIndex = count($this->scriptTokens);
         }
+
+        // name . (
+        if (preg_match('/^\s*\.', Scipter::$userCode)) {
+            // domain continues.
+        } else if (preg_match('/^\s*\(', Scipter::$userCode)) {
+            // method or function found.
+            if ($this->staticStartIndex === count($this->scriptTokens)) {
+                // function.
+                if (!function_exists($token)) {
+                    throw new SyntaxError('function '.$token.'() is not defined.');
+                }
+                $this->staticStartIndex = INIT;
+                return $token;
+            } else if ($this->staticStartIndex === INIT) {  // $prevTokenGroup === DOT
+                // loop helper.
+                if (!in_array(strtolower($token), Scripter::getLoopHelperMethods())) {
+                    throw new SyntaxError('loop helper method '.$token.'() is not defined.');
+                }
+                $dot = array_pop($this->scriptTokens);
+                $loopDepth = strlen($dot);
+                if ($loopDepth > Statement::commandStack()->count('@')) {
+                    throw new SyntaxError('depth of loop member is not correct "'.$dot.$token.'"');
+                }
+                [$a, $i, $s, $k, $v] = Statement::loopNames($loopDepth);
+                return Scripter::$LoopHelper.'::_o('.$i.','.$s.','.$k.','.$v.')->'.$token;
+            } else {
+                // method
+                $domain = array_splice($this->scriptTokens, $this->staticStartIndex);
+                $domain = '\\'.str_replace('.','\\',implode($domain));
+
+            }
+
+        } else {
+
+        }
+
+
 
         // name of variable / class / namespace / function / method / array element
         //$this->dotNameQ->enqueue($token);

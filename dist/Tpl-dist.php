@@ -62,16 +62,12 @@ class TplValWrapper extends TplusValWrapper {
 			'average() method called on unsupported type '.gettype($this->val)
 		);
 	}
-
-	public function format($decimals, $decimal_separator, $thousands_seperator) {
+	
+	public function format($decimals=0, $decimal_separator=".", $thousands_seperator=",") {
 		if (is_array($this->val)) {
-			$arr = [];
-			foreach ($this->val as $n) {
-				$arr[]=number_format((float)$n, $decimals, $decimal_separator, $thousands_seperator);
-			}
-			return $arr;
+			return $this->_iterate(__FUNCTION__, $decimals, $decimal_separator, $thousands_seperator);
 		}
-		return number_format((float)$this->val, $decimals, $decimal_separator, $thousands_seperator);
+		return number_format($this->val, $decimals, $decimal_separator, $thousands_seperator);
 	}
 }
 

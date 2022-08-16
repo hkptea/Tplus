@@ -91,16 +91,26 @@ class Tplus {
 
 class TplusValWrapper {
 
-    public static function o($val) {
+    public static function _o($val) {
         if (is_object($val)) {
             return $val;
         }
         return new static($val);
     }
 
-    function __construct($val) {
+    protected function __construct($val) {
         $this->val = $val;
     }
+
+    protected function _iterate() {
+		$args = func_get_args();
+		$method = array_shift($args);
+		$arr = [];
+		foreach ($this->val as $el) {
+			$arr[] = call_user_func_array([static::_o($el), $method], $args);
+		}
+		return $arr;
+	}
 
     public function esc() {
         return htmlspecialchars($this->val);
@@ -125,6 +135,7 @@ class TplusValWrapper {
     public function concat() {
         return $this->val . implode('',func_get_args());
     }
+    //format round ceil floor
 }
 
 class TplusLoopHelper {
