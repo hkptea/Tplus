@@ -48,8 +48,8 @@ class Scirpter {
         }
     
         //self::$config = $config;
-        self::$valWrapper = @'\\'.(self::$config['ValWrapper'] ?: 'TplValWrapper');
-        self::$loopHelper = @'\\'.(self::$config['LoopHelper'] ?: 'TplLoopHelper');
+        self::$valWrapper = '\\'.(@self::$config['ValWrapper'] ?: 'TplValWrapper');
+        self::$loopHelper = '\\'.(@self::$config['LoopHelper'] ?: 'TplLoopHelper');
         self::$userCode = self::getHtml($htmlPath);
         self::saveScriptResult($scriptPath, self::parse()); 
     }
@@ -60,34 +60,26 @@ class Scirpter {
     }
 
     public static function getValWrapperMethods() {
-        static $methods=[];
-        if (empty($methods)) {
-            if (!class_exists(self::$valWrapper)) {
-                throw new SyntaxError('val wrapper class "'.substr(self::$valWrapper, 1).'" does not exist.');
-            }
-            $methods = self::getMethods(self::$valWrapper);
-        }
-        return $methods;
+        return self::getMethods(self::$valWrapper);
     }
     public static function getLoopHelperMethods() {
-        static $methods=[];
-        if (empty($methods)) {
-            if (!class_exists('\\'.self::$valWrapper)) {
-                throw new SyntaxError('loop helper class "'.substr(self::$loopHelper, 1).'" does not exist.');
-            }
-            $methods = self::getMethods(self::$loopHelper);
-        }
-        return $methods;
+        return self::getMethods(self::$loopHelper);
     }
-    public static function getMethods($class) {
-        $methods = [];
-        $info = (new ReflectionClass($class))->getMethods();
-        foreach ($info as $o) {
-            if ($o->name[0] !== '_') {
-                $methods[] = strtolower($o->name);
+    private static function getMethods($class) {
+        static $methods = [];
+        if (empty($methods[$class])) {
+            $methods[$class] = [];
+            if (!class_exists($class)) {
+                throw new FatalError('loop helper class "'.substr($class, 1).'" does not exist.');
+            }
+            $reflectionMethods = (new ReflectionClass($class))->getMethods(ReflectionMethod::IS_PUBLIC);
+            foreach ($reflectionMethods as $m) {
+                if (!$m->isStatic()) {
+                    $methods[$class][] = strtolower($m->name);
+                }
             }
         }
-        return $methods;
+        return $methods[$class];
     }
 
     
@@ -124,6 +116,11 @@ class Scirpter {
                 }            
             }
         } catch(SyntaxError $e) {
+            if ($isTest) {
+                throw new \ErrorException($e->getMessage(), 0, E_PARSE, realpath($htmlPath), $currentLine);                
+            }
+            self::reportSyntaxError($e->getMessage(), $htmlPath, self::$currentLine);
+        } catch(FatalError $e) {
             if ($isTest) {
                 throw new \ErrorException($e->getMessage(), 0, E_PARSE, realpath($htmlPath), $currentLine);                
             }
@@ -215,6 +212,7 @@ class Scirpter {
 }
 
 class SyntaxError extends \Exception {}
+class FatalError extends \Exception {}
 
 
 

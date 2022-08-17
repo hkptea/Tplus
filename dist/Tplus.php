@@ -141,7 +141,7 @@ class TplusValWrapper {
 class TplusLoopHelper {
 
     protected $instance;
-    public static function o($i, $s, $k, $v) {
+    public static function _o($i, $s, $k, $v) {
         if (empty(static::$instance)) {
             static::$instance = new static;
         }
@@ -150,7 +150,7 @@ class TplusLoopHelper {
         static::$instance->k = $k;
         static::$instance->v = $v;
     }
-    function __construct() { }
+    //function __construct() { }
 }
 
 class TplusRuntimeError extends Exception {
