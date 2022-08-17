@@ -65,12 +65,13 @@ class Scirpter {
     public static function getLoopHelperMethods() {
         return self::getMethods(self::$loopHelper);
     }
-    private static function getMethods($class) {
+    private static function getMethods($class, $message) {
         static $methods = [];
         if (empty($methods[$class])) {
             $methods[$class] = [];
             if (!class_exists($class)) {
-                throw new FatalError('loop helper class "'.substr($class, 1).'" does not exist.');
+                //@todo "There is no ... class $class which contains method ....()"
+                throw new FatalError('--- class "'.substr($class, 1).'" does not exist.');
             }
             $reflectionMethods = (new ReflectionClass($class))->getMethods(ReflectionMethod::IS_PUBLIC);
             foreach ($reflectionMethods as $m) {
