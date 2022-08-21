@@ -812,14 +812,13 @@ class Name {
         
         // method or function in namespace
         $names = explode('.', self::$chain);
-        $func  = array_pop(self::$chain);            
-        $name  = array_pop(self::$chain);
-
+        $func  = array_pop($names);            
+        $name  = array_pop($names);
         $namespace = empty($names) ? '' : '\\'.implode('\\', $names);
+        self::initChain();
+
         $fullFunction = $namespace.'\\'.$name.'\\'.$func;
-        
         if (function_exists($fullFunction)) {   // namespace\function
-            self::initChain();            
             return substr($fullFunction, 1);
         }
 
@@ -832,7 +831,6 @@ class Name {
             if (!method_exists($fullClass, $func)) {
                 throw new FatalError($func.'() does not exist in '.$fullClass);
             }
-            self::initChain();
             return substr($fullClass, 1).'::'.$method;
         } 
 
@@ -842,9 +840,8 @@ class Name {
         while ($name = array_unshift($names)) {
             $script .= '["'.$$name.'"]';
         }
-        self::initChain();
-        return $script.'->'.$method;
 
+        return $script.'->'.$func;
     }
 
     private static function parseVariable($token) {
