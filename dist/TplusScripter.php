@@ -35,7 +35,6 @@ namespace Tplus;
 
 class Scirpter {
     
-    //private static $config;
     private static $currentLine = 1;
 
     public static $userCode;
@@ -461,7 +460,7 @@ class Expression {
      */
     private $opener = '';
     private $scriptTokens = [];
-    private $jsonKVDelimOn = false;
+    private $KVDelim = false;
     private $wrappingStartIndex  = INIT;
 
     public static function script($caseAvailable=false, $test=null) {
@@ -673,7 +672,7 @@ class Expression {
             throw new SyntaxError('Unexpected '.$token);
         }
         if (strstr('jJ', $this->opener)) {
-            $this->jsonKVDelimOn = false;
+            $this->KVDelim = false;
         }
         $this->opener = '';
     }
@@ -683,17 +682,17 @@ class Expression {
             return ':';
         }
         if (strstr('jJ', $this->opener)) {
-            if ($this->jsonKVDelimOn) {
+            if ($this->KVDelim) {
                 throw new SyntaxError('Unexpected '.$token);
             }
-            $this->jsonKVDelimOn = true;
+            $this->KVDelim = true;
             return ':';
         }
         throw new SyntaxError('Unexpected ":"');   
     }
     private function parseComma($token) {
         if (strstr('jJ', $this->opener)) {
-            $this->jsonKVDelimOn = false;
+            $this->KVDelim = false;
         }
         return ',';
     }
