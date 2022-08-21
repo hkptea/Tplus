@@ -34,7 +34,7 @@ class Tplus {
         }
 
 		ob_start();
-        $VALS = &$this->vals;
+        $V = &$this->vals;
 		include $scriptPath;
         return ob_get_clean();
     }

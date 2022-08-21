@@ -78,10 +78,10 @@ class TplLoopHelper extends TplusLoopHelper {
 	protected $k;
 	protected $v;
 
-	public function isEven() {
+	public function IsEven() {
 		return $this->i % 2 ? true : false;
 	}
-	public function isLast() {
+	public function IsLast() {
 		return $this->i + 1 == $this->s;
 	}
 }
