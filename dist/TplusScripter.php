@@ -845,13 +845,59 @@ class Name {
 
     private static function parseVariable($token) {
         if (!strstr(self::$chain, '.')) {
-            // variable or constant
-
+            if (self::isConstantName($token)) {
+                if (!defined($token)) {
+                    throw new FatalError('constant '.$token.' is not defined');
+                }
+                return $token;
+            }
+            return '$V["'.$token.'"]';
         }
-        // array element or constant in namespace|class
+        // key of array or constant in namespace|class
+        $names = explode('.', self::$chain);
+        $chain = '';
+        
+        //while (!empty($names)) {
+        $path = 
+        $name = array_pop($names);
+        $namespace = empty($names) ? '' : '\\'.implode('\\', $names);
+        if (self::isConstantName($token)) {
+            $nsConstant = $namespace.'\\'.'\\'.$token;
+            if (defined($nsConstant)) {
+                return substr($nsConstant, 1);
+            }
+            if (self::isClassName($name)) {
+                if (!class_exists($namespace)) {
+                    throw new FatalError('class '.$namespace)
+                }
+                $classConstant = $namespace.'::'.$token;
+                if (defined($classConstant)) {
+                    return substr($classConstant, 1);
+                }
+                $nsConstant = $namespace.'\\'.$token;
+                if (defined($nsConstant)) {
+                    return substr($nsConstant, 1);
+                }
+            }
+            if (!defined($namespace)) {
 
+            }
+        }
+    
+
+        //}
 
         
+
+    }
+    private static function isConstantName($token) {
+
+        return preg_match('/\P{Lu}/', $token) and !preg_match('/\P{Ll}/', $token);
+
+    }
+    private static function isClassName($token) {
+
+        return preg_match('/^\P{Lu}/', $name) and preg_match('/\P{Ll}/', $token);
 
     }
 }
