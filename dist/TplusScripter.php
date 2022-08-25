@@ -868,7 +868,7 @@ class Name {
             }
             if (self::isClassName($name)) {
                 if (!class_exists($namespace)) {
-                    throw new FatalError('class '.$namespace)
+                    throw new FatalError('class '.$namespace);
                 }
                 $classConstant = $namespace.'::'.$token;
                 if (defined($classConstant)) {
