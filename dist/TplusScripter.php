@@ -239,29 +239,6 @@ class Stack { //extends Collection {
     }
 }
 
-// class Collection {
-//     protected $items = [];
-//     public function peek() {
-//         return end($this->items);
-//     }
-// 	public function isEmpty() {
-// 		return empty($this->items);
-// 	}
-// 	public function count() {
-// 		return func_num_args() > 0
-//             ? array_count_values($this->items)[func_get_arg(0)]
-//             : count($this->items) ;
-// 	}
-// }
-// class Queue extends Collection {
-//     public function enqueue($item) {
-//         $this->items[] = $item;
-//     }
-//     public function dequeue() {
-//         return array_shift($this->items);
-//     }
-// }
-
 
 
 class Statement {
@@ -866,9 +843,9 @@ class Name {
         $constantChain = $constant;
         foreach($backNames as $name) {
             if (self::isConstantName($name)) {
-                $constantChain .= '['$name']';
+                $constantChain .= '['.$name.']';
             } else {
-                $constantChain .= '["'$name'"]';
+                $constantChain .= '["'.$name.'"]';
             }
         }
         return $constantChain;
