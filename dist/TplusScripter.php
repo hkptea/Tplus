@@ -173,8 +173,8 @@ class Scirpter {
             ([=@?:/*])
         ~xs';
 
-        if (preg_match($pattern, self::$userCode, $match)) {
-            return $match; 
+        if (preg_match($pattern, self::$userCode, $matches)) {
+            return $matches; 
         }
 
         return [self::$userCode, self::$userCode, '', '', '', ''];
@@ -201,8 +201,8 @@ class Scirpter {
             (?:\s*-->)?
         ~xs';
         
-        if (preg_match($pattern, self::$userCode, $match)) {
-            self::decreaseUserCode($match[0]);
+        if (preg_match($pattern, self::$userCode, $matches)) {
+            self::decreaseUserCode($matches[0]);
 
         } else {
             self::$userCode = '';
@@ -364,11 +364,11 @@ class Statement {
             (?:\s*-->)?
         ~xs';
     
-        if (!preg_match($pattern, Scripter::$userCode, $match)) {
+        if (!preg_match($pattern, Scripter::$userCode, $matches)) {
             throw new SyntaxError('Tag not correctly closed.');
         }
     
-        Scripter::decreaseUserCode($match[0]);
+        Scripter::decreaseUserCode($matches[0]);
     }
     public static function loopName($depth, $keyword='') {
         return self::loopNames($depth)[$keyword];
@@ -388,67 +388,68 @@ class Statement {
 
 
 
-/**  Expression */
 
 
-const INIT      = -1;
+
 
 // DOT|OPERAND|OPERATOR|O_OPERATOR|OPEN|CLOSE|UNARY|BI_UNARY
 
-const SPACE     = 0;
-const DOT       = 1;
-const OPERAND   = 2;
-const OPERATOR  = 4;
-const O_OPERATOR= 8;
-const OPEN      = 16;
-const CLOSE     = 32;
-const UNARY     = 64;
-const BI_UNARY  = 128;
+class Token {
+    const SPACE     = 0;
+    const DOT       = 1;
+    const OPERAND   = 2;
+    const OPERATOR  = 4;
+    const O_OPERATOR= 8;
+    const OPEN      = 16;
+    const CLOSE     = 32;
+    const UNARY     = 64;
+    const BI_UNARY  = 128;
 
-const TOKEN = [
-    SPACE => [
-        'Space'  =>'\s+'
-    ],
-    DOT => [
-        'Dot'   =>'\.+'
-    ],
-    OPERAND => [
-        'Reserved'  =>'(?:true|false|null|this)(?![\p{L}p{N}_])',
-        'Name'      =>'[\p{L}_][\p{L}p{N}_]*',
-        'Integer'   =>'\d+(?![\p{L}p{N}_])',
-        'Number'    =>'(?:\d+(?:\.\d*)?(?:[eE][+\-]?\d+)',
-        'Quoted'    =>'(?:"(?:\\\\.|[^"])*")|(?:\'(?:\\\\.|[^\'])*\')',
-    ],
-    OPERATOR => [
-        'Xcrement'  => '\+\+|--',
-        'Comparison'=> '===?|!==?|<|>|<=|>=',       // check a == b == c
-        'Logic'     => '&&|\|\|',                   
-        'Elvis'     => '\?:|\?\?',
-        'ArithOrBit'=> '[%*/&|\^]|<<|>>',           // check quoted
-    ],
-    O_OPERATOR => [
-        'TernaryIf' => '\?',                        
-        'TernaryElseOrKVDelim'=>':',                 
-        'Comma'     => ',',
-    ],
-    OPEN => [
-        'ParenthesisOpen'=>'\(',
-        'BraceOpen'=>'{',
-        'BracketOpen'=>'\[',        
-    ],
-    CLOSE => [
-        'ParenthesisClose'=>'\)',
-        'BraceClose'=>'}',
-        'BracketClose'=>'\]',   
-    ],
-    BI_UNARY => [
-        'Plus'  => '\+',
-        'Minus' => '-'
-    ],
-    UNARY => [
-        'Unary' =>'~|!',
-    ],
-];
+    const GROUPS = [
+        self::SPACE => [
+            'Space'  =>'\s+'
+        ],
+        self::DOT => [
+            'Dot'   =>'\.+'
+        ],
+        self::OPERAND => [
+            'Reserved'  =>'(?:true|false|null|this)(?![\p{L}p{N}_])',
+            'Name'      =>'[\p{L}_][\p{L}p{N}_]*',
+            'Integer'   =>'\d+(?![\p{L}p{N}_])',
+            'Number'    =>'(?:\d+(?:\.\d*)?(?:[eE][+\-]?\d+)',
+            'Quoted'    =>'(?:"(?:\\\\.|[^"])*")|(?:\'(?:\\\\.|[^\'])*\')',
+        ],
+        self::OPERATOR => [
+            'Xcrement'  => '\+\+|--',
+            'Comparison'=> '===?|!==?|<|>|<=|>=',       // check a == b == c
+            'Logic'     => '&&|\|\|',                   
+            'Elvis'     => '\?:|\?\?',
+            'ArithOrBit'=> '[%*/&|\^]|<<|>>',           // check quoted
+        ],
+        self::O_OPERATOR => [
+            'TernaryIf' => '\?',                        
+            'TernaryElseOrKVDelim'=>':',                 
+            'Comma'     => ',',
+        ],
+        self::OPEN => [
+            'ParenthesisOpen'=>'\(',
+            'BraceOpen'=>'{',
+            'BracketOpen'=>'\[',        
+        ],
+        self::CLOSE => [
+            'ParenthesisClose'=>'\)',
+            'BraceClose'=>'}',
+            'BracketClose'=>'\]',   
+        ],
+        self::BI_UNARY => [
+            'Plus'  => '\+',
+            'Minus' => '-'
+        ],
+        self::UNARY => [
+            'Unary' =>'~|!',
+        ],
+    ];
+}
 
 class Expression {
 
@@ -461,7 +462,7 @@ class Expression {
     private $opener = '';
     private $scriptTokens = [];
     private $KVDelim = false;
-    private $wrappingStartIndex  = INIT;
+    private $wrappingStartIndex  = -1;
 
     public static function script($caseAvailable=false, $test=null) {
 
@@ -491,33 +492,33 @@ class Expression {
             }
 
             $token = null;
-            foreach (self::TOKEN as $currTokenGroup => $tokenNames) {
+            foreach (Token::GROUPS as $currTokenGroup => $tokenNames) {
                 foreach ($tokenNames as $currTokenName => $pattern) {
                     $pattern = '#^('.$pattern.')#s';
-                    if (!preg_match($pattern, Scripter::$userCode, $match)) {
+                    if (!preg_match($pattern, Scripter::$userCode, $matches)) {
                         continue;
                     }
 
-                    $token = $match[1];
+                    $token = $matches[1];
                     $userCode .= $token;
                     Scripter::decreaseUserCode($token);
 
-                    if ($currTokenGroup === SPACE) {
+                    if ($currTokenGroup === Token::SPACE) {
                         continue 3;
                     }
-                    if ( $prevTokenGroup & (OPERAND|CLOSE) ) {  
-                        if ( $currTokenGroup & (OPERAND|UNARY) ) {
+                    if ( $prevTokenGroup & (Token::OPERAND|Token::CLOSE) ) {  
+                        if ( $currTokenGroup & (Token::OPERAND|Token::UNARY) ) {
                             //@todo&note CLOSE before OPEN is processed by according method.
                             throw new SyntaxError('Unexpected '.$token);
                         }
                     } else {    
                         //@if $prevTokenGroup is DOT|OPERATOR|O_OPERATOR|OPEN|UNARY|BI_UNARY
-                        if ( $currTokenGroup & (OPERATOR|O_OPERATOR|CLOSE) ) {
+                        if ( $currTokenGroup & (Token::OPERATOR|Token::O_OPERATOR|Token::CLOSE) ) {
                             //@note If $currTokenGroup is CLOSE, $prevTokenGroup is always OPERAND. {#REF}
                             throw new SyntaxError('Unexpected '.$token);
                         }
                     }
-                    if ($prevTokenGroup === DOT and $currTokenName !== 'Name') {
+                    if ($prevTokenGroup === Token::DOT and $currTokenName !== 'Name') {
                         throw new SyntaxError('Unexpected '.$token);
                     }
                    
@@ -528,17 +529,17 @@ class Expression {
                 throw new SyntaxError('Invalid expression: '.$userCode);
             }
 
-            if ($currTokenGroup !== CLOSE) {
+            if ($currTokenGroup !== Token::CLOSE) {
                 $this->setWrappingStartIndex($currTokenGroup);
             }
 
             $this->scriptTokens[] 
                 = $this->{'parse'.$currTokenName}($token, $prevTokenGroup, $prevTokenName, $isUnaryAttached);               
 
-            if ($currTokenGroup & (UNARY|BI_UNARY)) {
+            if ($currTokenGroup & (Token::UNARY|Token::BI_UNARY)) {
                 $isUnaryAttached = $this->isUnaryAttached($isUnaryAttached, $prevTokenGroup, $currTokenGroup);
 
-            } else if ($currTokenGroup & (OPEN|O_OPERATOR)) {
+            } else if ($currTokenGroup & (Token::OPEN|Token::O_OPERATOR)) {
                 $this->startNewExpression();
                 $currTokenGroup = OPERAND;
             }
@@ -549,14 +550,14 @@ class Expression {
     } 
 
     private function setWrappingStartIndex($currTokenGroup) {
-        if ($this->wrappingStartIndex === INIT ) {
-            if ($currTokenGroup & (OPERAND|OPEN|DOT)) {
+        if ($this->wrappingStartIndex === -1 ) {
+            if ($currTokenGroup & (Token::OPERAND|Token::OPEN|Token::DOT)) {
                 //@note dot(.) is higher than unary operator in priority.
                 $this->wrappingStartIndex = count($this->scriptTokens);
             }
         } else {
-            if ($currTokenGroup & (OPERATOR|O_OPERATOR|UNARY|BI_UNARY)) { // exclude CLOSE
-                $this->wrappingStartIndex = INIT;
+            if ($currTokenGroup & (Token::OPERATOR|Token::O_OPERATOR|Token::UNARY|Token::BI_UNARY)) { // exclude CLOSE
+                $this->wrappingStartIndex = -1;
             }
         }
     }
@@ -605,23 +606,23 @@ class Expression {
             return true;
         }
         return (
-            $prevTokenGroup & (OPERAND|CLOSE)
+            $prevTokenGroup & (Token::OPERAND|Token::CLOSE)
             and empty($this->opener)   
         );
     }
     private function isUnaryAttached($isUnaryAttached, $prevTokenGroup, $currTokenGroup) {
         if ($isUnaryAttached) {
-            return ($currTokenGroup & (UNARY|BI_UNARY)) ? true : false;
+            return ($currTokenGroup & (Token::UNARY|Token::BI_UNARY)) ? true : false;
         }
-        if ($currTokenGroup === UNARY) {
+        if ($currTokenGroup === Token::UNARY) {
             return true;
         } 
-        if ($currTokenGroup === BI_UNARY) {
+        if ($currTokenGroup === Token::BI_UNARY) {
             // [ UNARY|OPERAND|CLOSE  |  OPERATOR|BI_UNARY|OPEN or 0 ]
             // if $prevTokenGroup is UNARY, true has been already returned.
             // if $prevTokenGroup is OPERAND|CLOSE, + - are binary operator.
             // if $prevTokenGroup is OPERATOR|O_OPERATOR|BI_UNARY|OPEN or 0,  + and - are unary operator.
-            return ($prevTokenGroup & (OPERAND|CLOSE)) ? false : true;
+            return ($prevTokenGroup & (Token::OPERAND|Token::CLOSE)) ? false : true;
         }
         return false;
     }      
@@ -756,28 +757,13 @@ class Name {
 
         }
 
-        return parseVariable($token);
+        return parseVariable();
     }
     
-    private static function loopMember($names, $depth, $isMethod) {
-        $names = explode('.', preg_replace('/^v\./', '', $names));
-        if ($isMethod) {
-            $method = array_pop($names);
-        }
-        $script = Statement::loopName($loopDepth, 'v');
-        foreach ($names as $name) {
-            $script .= '["'.$name.'"]';
-        }
-
-        self::initChain();
-
-        return $isMethod ? $script.'->'.$method : $script;
-    }
-
     private static function parseLoopMember($token) {
-        preg_match('/^(\.+)(.+)$/s', self::$chain, $match);
-        $dots  = $match[1];
-        $names = $match[2];
+        preg_match('/^(\.+)(.+)$/s', self::$chain, $matches);
+        $dots  = $matches[1];
+        $names = $matches[2];
         $loopDepth = strlen($dots);
 
         if ($loopDepth > Statement::loopDepth()) {
@@ -800,6 +786,21 @@ class Name {
         return loopMember($names, $loopDepth, false);
     }
     
+    private static function loopMember($names, $depth, $isMethod) {
+        $names = explode('.', preg_replace('/^v\./', '', $names));
+        if ($isMethod) {
+            $method = array_pop($names);
+        }
+        $script = Statement::loopName($loopDepth, 'v');
+        foreach ($names as $name) {
+            $script .= '["'.$name.'"]';
+        }
+
+        self::initChain();
+
+        return $isMethod ? $script.'->'.$method : $script;
+    }
+
     private static function parseFunction($token) {
         if (!strstr(self::$chain, '.')) { // function.
             if (!function_exists($token)) {
@@ -843,52 +844,52 @@ class Name {
         return $script.'->'.$func;
     }
 
-    private static function parseVariable($token) {
-        if (!strstr(self::$chain, '.')) {
-            if (self::isConstantName($token)) {
-                if (!defined($token)) {
-                    throw new FatalError('constant '.$token.' is not defined');
-                }
-                return $token;
-            }
-            return '$V["'.$token.'"]';
+    private static function parseConstantChain($frontNames, $backNames) {
+        $constant = array_pop($frontNames);
+        $path = '';
+        foreach($frontNames as $name) {
+            $path .= '\\'.$name;
         }
-        // key of array or constant in namespace|class
+        if (defined($path.'\\'.$name)) {
+            return self::constantChain($path.'\\'.$name, $backNames);
+        } 
+        if ($path and defined($path.'::'.$name)) {
+            return self::constantChain($path.'::'.$name, $backNames);
+        }
+        throw new FatalError(
+            empty($path)
+            ? 'constant '.$name.' is not defined.'
+            : 'Neither '.$path.'\\'.$name.' nor '.$path.'::'.$name.' is defined'
+        );
+    }
+    private static function constantChain($constant, $backNames) {
+        $constantChain = $constant;
+        foreach($backNames as $name) {
+            if (self::isConstantName($name)) {
+                $constantChain .= '['$name']';
+            } else {
+                $constantChain .= '["'$name'"]';
+            }
+        }
+        return $constantChain;
+    }
+    private static function parseVariable() {        
         $names = explode('.', self::$chain);
-        $chain = '';
-        
-        //while (!empty($names)) {
-        $path = 
-        $name = array_pop($names);
-        $namespace = empty($names) ? '' : '\\'.implode('\\', $names);
-        if (self::isConstantName($token)) {
-            $nsConstant = $namespace.'\\'.'\\'.$token;
-            if (defined($nsConstant)) {
-                return substr($nsConstant, 1);
-            }
-            if (self::isClassName($name)) {
-                if (!class_exists($namespace)) {
-                    throw new FatalError('class '.$namespace);
-                }
-                $classConstant = $namespace.'::'.$token;
-                if (defined($classConstant)) {
-                    return substr($classConstant, 1);
-                }
-                $nsConstant = $namespace.'\\'.$token;
-                if (defined($nsConstant)) {
-                    return substr($nsConstant, 1);
-                }
-            }
-            if (!defined($namespace)) {
-
+        $frontNames = [];
+        while ($name = array_pop($names)) {
+            $frontNames[] = $name;
+            if (self::isConstantName($name)) {
+                return self::parseConstantChain($frontNames, $names);
             }
         }
-    
 
-        //}
-
+        $names = explode('.', self::$chain);
+        $var = '$V';
+        foreach ($names as $name) {
+            $var .= '["'.$name.'"]';
+        }
+        return $var;
         
-
     }
     private static function isConstantName($token) {
 
