@@ -856,9 +856,10 @@ class Name {
         if ($path and defined($path.'::'.$name)) {
             return self::constantChain($path.'::'.$name, $backNames);
         }
-        throw new FatalError($path 
-            ? 'Neither '.$path.'\\'.$name.' nor '.$path.'::'.$name.' is defined'
-            : 'constant '.$name.' is not defined.'
+        throw new FatalError(
+            empty($path)
+            ? 'constant '.$name.' is not defined.'
+            : 'Neither '.$path.'\\'.$name.' nor '.$path.'::'.$name.' is defined'
         );
     }
     private static function constantChain($constant, $backNames) {
