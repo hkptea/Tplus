@@ -217,7 +217,7 @@ class FatalError extends \Exception {}
 
 
 
-class Stack { //extends Collection {
+class Stack {
     protected $items = [];
 
     public function peek() {
@@ -459,8 +459,7 @@ class Expression {
 
         $prevTokenGroup = 0;
         $prevTokenName  = '';
-        $isUnaryAttached= false; 
-        $userCode = '';
+        $isUnaryAttached= false;         
         Name::initChain();
         
         for (;;) {
@@ -468,6 +467,7 @@ class Expression {
                 break;
             }
 
+            $userCode = '';
             $token = null;
             foreach (Token::GROUPS as $currTokenGroup => $tokenNames) {
                 foreach ($tokenNames as $currTokenName => $pattern) {
@@ -731,7 +731,6 @@ class Name {
 
         if (preg_match('/^\s*\(', Scipter::$userCode)) {
             return $this->parseFunction($token);
-
         }
 
         return parseVariable();
@@ -799,8 +798,7 @@ class Name {
             return substr($fullFunction, 1);
         }
 
-        if (preg_match('/^p{Lu}/', $name)) {    // namespace\class::method
-            // static method
+        if (self::isClassName($name)) {    // namespace\class::method
             $fullClass = $namespace.'\\'.$name;
             if (!class_exists($fullClass)) {
                 throw new FatalError($fullClass.' does not exist');
@@ -836,7 +834,7 @@ class Name {
         throw new FatalError(
             empty($path)
             ? 'constant '.$name.' is not defined.'
-            : 'Neither '.$path.'\\'.$name.' nor '.$path.'::'.$name.' is defined'
+            : 'Neither '.$path.'\\'.$name.' nor '.$path.'::'.$name.' is defined.'
         );
     }
     private static function constantChain($constant, $backNames) {
