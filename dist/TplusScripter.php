@@ -620,6 +620,15 @@ class Expression {
         return false;
     }      
 
+    private function parseReserved($token) {
+        // this 는 그냥 처음부터 객체로 정해짐
+        // 네임 체인이 없어야 함. this가 네임 체인 중간에 올 수 없음
+        //
+        if ($toekn === 'this') {
+
+        }
+    }
+
     private function parseName($token) {
 
         return Name::parse($token);
@@ -691,6 +700,9 @@ class Expression {
         return ',';
     }
  
+    private function parseInteger($token) {
+        return $token;
+    }
     private function parseNumber($token) {
         return $token;
     }
