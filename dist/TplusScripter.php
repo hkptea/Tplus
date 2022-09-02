@@ -47,10 +47,39 @@ class Scirpter {
         }
     
         //self::$config = $config;
-        self::$valWrapper = '\\'.(@self::$config['ValWrapper'] ?: 'TplValWrapper');
-        self::$loopHelper = '\\'.(@self::$config['LoopHelper'] ?: 'TplLoopHelper');
+        self::$valWrapper       = '\\'.(@self::$config['ValWrapper'] ?: 'TplValWrapper');
+        self::$loopHelper       = '\\'.(@self::$config['LoopHelper'] ?: 'TplLoopHelper');
+        self::$scriptPermission = @self::$config['scriptPermission'] ?: 0666;
         self::$userCode = self::getHtml($htmlPath);        
-        self::saveScriptResult($scriptPath, self::parse()); 
+        self::saveScriptResult($scriptRoot, $scriptPath, self::parse()); 
+    }
+        
+    private static function saveScriptResult($scriptRoot, $scriptPath, $scriptResult) {
+        $scriptRoot = preg_replace('#\\\\+#', '/', $scriptRoot);
+        $scriptRoot = preg_replace('#/$#', '', $scriptRoot);
+        $scriptPath = preg_replace('#\\\\+#', '/', $scriptPath);
+
+        if (!is_dir($scriptRoot)) {
+            throw new FatalError('script root '.$scriptRoot.' does not exist');
+        }
+        if (!is_readable($scriptRoot)) {
+            throw new FatalError('script root '.$scriptRoot.' is not readable. check read-permission of web server.');
+        }
+        if (!is_writable($scriptRoot)) {
+            throw new FatalError('script root '.$scriptRoot.' is not writable. check write-permission of web server.');
+        }
+        $scriptRelPath = substr($scriptPath, strlen($scriptRoot)+1);
+        $scriptRelPathParts = explode('/', $scriptRelPath);
+        $file = array_pop($scriptRelPathParts);
+        $path = $scriptRoot;
+        foreach ($scriptRelPathParts as $dir) {
+            $path .= '/'.$dir;
+            if (!is_dir($path)) {
+                mkdir($path, self::$scriptPermission);
+            }
+        }
+        file_put_contents($path.'/'.$file, $scriptResult, LOCK_EX);
+        chmod($path.'/'.$file, self::$scriptPermission);
     }
 
     public static function decreaseUserCode($parsedUserCode) {
@@ -127,10 +156,6 @@ class Scirpter {
             self::reportSyntaxError($e->getMessage(), $htmlPath, self::$currentLine);
         }
         return $resultScript;
-    }
-        
-    private static function saveScriptResult($scriptPath, $scriptResult) {
-
     }
 
     private static function getHtml($htmlPath) {
@@ -363,15 +388,7 @@ class Statement {
     }
 }
 
-
-
-
-
-
-
-// DOT|OPERAND|OPERATOR|O_OPERATOR|OPEN|CLOSE|UNARY|BI_UNARY
-
-class Token {
+class Token { // DOT|OPERAND|OPERATOR|O_OPERATOR|OPEN|CLOSE|UNARY|BI_UNARY
     const SPACE     = 0;
     const DOT       = 1;
     const OPERAND   = 2;
@@ -451,7 +468,6 @@ class Expression {
         $expression->parse($caseAvailable);
         return $expression->assembleScriptTokens();
     }
-    
 
     private function parse($caseAvailable=false, $recursive=false, $parentOpener='') {
 
