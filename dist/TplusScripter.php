@@ -54,9 +54,9 @@ class Scirpter {
     }
         
     private static function saveScriptResult($scriptRoot, $scriptPath, $scriptResult) {
-        $scriptRoot = preg_replace('#\\\\+#', '/', $scriptRoot);
-        $scriptRoot = preg_replace('#/$#', '', $scriptRoot);
-        $scriptPath = preg_replace('#\\\\+#', '/', $scriptPath);
+        $scriptRoot = preg_replace('~\\\\+~', '/', $scriptRoot);
+        $scriptRoot = preg_replace('~/$~', '', $scriptRoot);
+        $scriptPath = preg_replace('~\\\\+~', '/', $scriptPath);
 
         if (!is_dir($scriptRoot)) {
             throw new FatalError('script root '.$scriptRoot.' does not exist');
