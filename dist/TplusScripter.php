@@ -46,7 +46,6 @@ class Scirpter {
             return call_user_func_array([self::class, $test['func']], $test['args']);
         }
     
-        //self::$config = $config;
         self::$valWrapper       = '\\'.(@self::$config['ValWrapper'] ?: 'TplValWrapper');
         self::$loopHelper       = '\\'.(@self::$config['LoopHelper'] ?: 'TplLoopHelper');
         self::$scriptPermission = @self::$config['scriptPermission'] ?: 0666;
