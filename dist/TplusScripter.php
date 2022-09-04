@@ -52,7 +52,8 @@ class Scirpter {
         self::$userCode = self::getHtml($htmlPath);        
         self::saveScriptResult($scriptRoot, $scriptPath, self::parse()); 
     }
-        
+
+
     private static function saveScriptResult($scriptRoot, $scriptPath, $scriptResult) {
         $scriptRoot = preg_replace('~\\\\+~', '/', $scriptRoot);
         $scriptRoot = preg_replace('~/$~', '', $scriptRoot);
