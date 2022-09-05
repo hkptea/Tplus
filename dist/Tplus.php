@@ -38,9 +38,6 @@ class Tplus {
 		include $scriptPath;
         return ob_get_clean();
     }
-    private function includeScript() {
-
-    }
 
     private function script($htmlPath, $scriptPath) {
         include_once 'TplusScripter.php';
@@ -87,7 +84,6 @@ class Tplus {
         );
     }
     private function scriptHeader($htmlPath) {
-        //??? SIZE_PAD ???
 		$fileMTime = @date('Y/m/d H:i:s', filemtime($htmlPath));
 		return '<?php /* Tplus '.$fileMTime.' '.realpath($htmlPath).' ';
     }

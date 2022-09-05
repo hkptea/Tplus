@@ -50,7 +50,13 @@ class Scirpter {
         self::$loopHelper = '\\'.(isset($config['LoopHelper']) ? $config['LoopHelper'] : 'TplLoopHelper');
         try {
             self::$userCode = self::getHtml($htmlPath);        
-            self::saveScriptResult($config['HtmlScriptRoot'], $scriptPath, self::parse()); 
+            self::saveScript(
+                $config['HtmlScriptRoot'], 
+                $scriptPath, 
+                $scriptSizePad, 
+                $scriptHeader, 
+                self::parse()
+            ); 
         } catch(SyntaxError $e) {
             if ($test) {
                 throw new \ErrorException($e->getMessage(), 0, E_PARSE, realpath($htmlPath), $currentLine);                
@@ -65,7 +71,7 @@ class Scirpter {
         }
     }
 // header
-    private static function saveScriptResult($scriptRoot, $scriptPath, $scriptResult) {
+    private static function saveScript($scriptRoot, $scriptPath, $scriptSizePad, $scriptHeader, $script) {
         $scriptRoot = preg_replace('~\\\\+~', '/', $scriptRoot);
 
         if (!is_dir($scriptRoot)) {
@@ -93,11 +99,19 @@ class Scirpter {
                 }
             }
         }
-        if (!file_put_contents($path.'/'.$file, $scriptResult, LOCK_EX)) {
-            throw new FatalError('fail to write file '.$path.'/'.$file.' check permission or unknown problem');
+
+        $headerPostfix = ' */ ?>'."\n";
+        $headerSize = strlen($scriptHeader) + $scriptSizePad + strlen($headerPostfix);
+        $scriptSize = $headerSize + strlen($script);
+        $scriptHeader .= str_pad((string)$scriptSize, $scriptSizePad, '0', STR_PAD_LEFT) . $headerPostfix;
+        $script = $scriptHeader . $script;
+        $scriptFile = $path.'/'.$file;
+        
+        if (!file_put_contents($scriptFile, $script, LOCK_EX)) {
+            throw new FatalError('fail to write file '.$scriptFile.' check permission or unknown problem.');
         }
         if (!chmod($path.'/'.$file, $filePerms)) {
-            throw new FatalError('fail to set permission of file '.$path.'/'.$file.' check permission or unknown problem');
+            throw new FatalError('fail to set permission of file '.$scriptFile.' check permission or unknown problem.');
         }
     }
 
