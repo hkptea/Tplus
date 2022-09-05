@@ -41,23 +41,32 @@ class Scirpter {
     public static $valWrapper;
     public static $loopHelper;
 
-    public static function script($htmlPath, $scriptPath, $scriptRoot, $scriptSizePad, $config, $test=null) {
+    public static function script($htmlPath, $scriptPath, $scriptSizePad, $scriptHeader, $config, $test=null) {
         if ($test) {
             return call_user_func_array([self::class, $test['func']], $test['args']);
         }
     
-        self::$valWrapper       = '\\'.(@self::$config['ValWrapper'] ?: 'TplValWrapper');
-        self::$loopHelper       = '\\'.(@self::$config['LoopHelper'] ?: 'TplLoopHelper');
-        self::$scriptPermission = @self::$config['scriptPermission'] ?: 0666;
-        self::$userCode = self::getHtml($htmlPath);        
-        self::saveScriptResult($scriptRoot, $scriptPath, self::parse()); 
+        self::$valWrapper = '\\'.(isset($config['ValWrapper']) ? $config['ValWrapper'] : 'TplValWrapper');
+        self::$loopHelper = '\\'.(isset($config['LoopHelper']) ? $config['LoopHelper'] : 'TplLoopHelper');
+        try {
+            self::$userCode = self::getHtml($htmlPath);        
+            self::saveScriptResult($config['HtmlScriptRoot'], $scriptPath, self::parse()); 
+        } catch(SyntaxError $e) {
+            if ($test) {
+                throw new \ErrorException($e->getMessage(), 0, E_PARSE, realpath($htmlPath), $currentLine);                
+            }
+            self::reportSyntaxError($e->getMessage(), $htmlPath, self::$currentLine);
+        } catch(FatalError $e) {
+            //@todo duplication
+            if ($test) {
+                throw new \ErrorException($e->getMessage(), 0, E_PARSE, realpath($htmlPath), $currentLine);                
+            }
+            self::reportSyntaxError($e->getMessage(), $htmlPath, self::$currentLine);
+        }
     }
-
-
+// header
     private static function saveScriptResult($scriptRoot, $scriptPath, $scriptResult) {
         $scriptRoot = preg_replace('~\\\\+~', '/', $scriptRoot);
-        $scriptRoot = preg_replace('~/$~', '', $scriptRoot);
-        $scriptPath = preg_replace('~\\\\+~', '/', $scriptPath);
 
         if (!is_dir($scriptRoot)) {
             throw new FatalError('script root '.$scriptRoot.' does not exist');
@@ -68,18 +77,28 @@ class Scirpter {
         if (!is_writable($scriptRoot)) {
             throw new FatalError('script root '.$scriptRoot.' is not writable. check write-permission of web server.');
         }
-        $scriptRelPath = substr($scriptPath, strlen($scriptRoot)+1);
+
+        $filePerms  = fileperms($scriptRoot);
+        $scriptPath = preg_replace('~\\\\+~', '/', $scriptPath);
+        $scriptRelPath  = substr($scriptPath, strlen($scriptRoot));
         $scriptRelPathParts = explode('/', $scriptRelPath);
-        $file = array_pop($scriptRelPathParts);
+        $filename = array_pop($scriptRelPathParts);
         $path = $scriptRoot;
+        
         foreach ($scriptRelPathParts as $dir) {
             $path .= '/'.$dir;
             if (!is_dir($path)) {
-                mkdir($path, self::$scriptPermission);
+                if (!mkdir($path, $filePerms)) {
+                    throw new FatalError('fail to create directory '.$path.' check permission or unknown problem.');
+                }
             }
         }
-        file_put_contents($path.'/'.$file, $scriptResult, LOCK_EX);
-        chmod($path.'/'.$file, self::$scriptPermission);
+        if (!file_put_contents($path.'/'.$file, $scriptResult, LOCK_EX)) {
+            throw new FatalError('fail to write file '.$path.'/'.$file.' check permission or unknown problem');
+        }
+        if (!chmod($path.'/'.$file, $filePerms)) {
+            throw new FatalError('fail to set permission of file '.$path.'/'.$file.' check permission or unknown problem');
+        }
     }
 
     public static function decreaseUserCode($parsedUserCode) {
@@ -112,48 +131,35 @@ class Scirpter {
     }
 
     
-    private static function parse($isTest=false) {
-        try {
+    private static function parse() {
+        $foundScriptTag = self::findScriptTag();
+        if ($foundScriptTag) {
+            throw new SyntaxError('PHP tag not allowed. <b>'.$foundScriptTag.'</b>');
+        };
 
-            $foundScriptTag = self::findScriptTag();
-            if ($foundScriptTag) {
-                throw new SyntaxError('PHP tag not allowed. <b>'.$foundScriptTag.'</b>');
-            };
+        $resultScript='';
+        while (self::$userCode) {
+            [$parsedUserCode, $userCodeBeforeTag, $htmlLeftCmnt, $leftTag, $escape, $command]
+                = self::findLeftTagAndCommand();
+        
+            $resultScript .= $userCodeBeforeTag;
 
-            $resultScript='';
-            while (self::$userCode) {
-                [$parsedUserCode, $userCodeBeforeTag, $htmlLeftCmnt, $leftTag, $escape, $command]
-                    = self::findLeftTagAndCommand();
-          
-                $resultScript .= $userCodeBeforeTag;
+            self::decreaseUserCode($parsedUserCode);
 
-                self::decreaseUserCode($parsedUserCode);
-
-                if (!$leftTag) { 
-                    break;
-                }
-
-                if ($escape) {
-                    $resultScript .= $htmlLeftCmnt.$leftTag.substr($escape, 1).$command;
-
-                } else if ('*' === $command) {
-                    self::removeComment();
-
-                } else {
-                    $resultScript .= Statement::script($command);
-
-                }            
+            if (!$leftTag) { 
+                break;
             }
-        } catch(SyntaxError $e) {
-            if ($isTest) {
-                throw new \ErrorException($e->getMessage(), 0, E_PARSE, realpath($htmlPath), $currentLine);                
-            }
-            self::reportSyntaxError($e->getMessage(), $htmlPath, self::$currentLine);
-        } catch(FatalError $e) {
-            if ($isTest) {
-                throw new \ErrorException($e->getMessage(), 0, E_PARSE, realpath($htmlPath), $currentLine);                
-            }
-            self::reportSyntaxError($e->getMessage(), $htmlPath, self::$currentLine);
+
+            if ($escape) {
+                $resultScript .= $htmlLeftCmnt.$leftTag.substr($escape, 1).$command;
+
+            } else if ('*' === $command) {
+                self::removeComment();
+
+            } else {
+                $resultScript .= Statement::script($command);
+
+            }            
         }
         return $resultScript;
     }

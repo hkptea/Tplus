@@ -44,7 +44,7 @@ class Tplus {
 
     private function script($htmlPath, $scriptPath) {
         include_once 'TplusScripter.php';
-        \Tplus\Scripter::script($htmlPath, $scriptPath, $this->config['HtmlScriptRoot'], SCRIPT_SIZE_PAD);
+        \Tplus\Scripter::script($htmlPath, $scriptPath, SCRIPT_SIZE_PAD, $this->scriptHeader(), $config);
     }
 
     private function checkScript($path, $scriptPath) {
@@ -74,8 +74,7 @@ class Tplus {
     }
 
     private function isScriptUpdated($htmlPath, $scriptPath) {
-		$fileMTime = @date('Y/m/d H:i:s', filemtime($htmlRealPath));
-		$headerExpected = '<?php /* Tplus '.$fileMTime.' '.realpath($htmlPath).' ';
+		$headerExpected = $this->scriptHeader($htmlPath);
         $headerWritten = file_get_contents(
             $scriptPath, false, null, 0, 
             strlen($headerExpected) + SCRIPT_SIZE_PAD
@@ -86,6 +85,11 @@ class Tplus {
             and $headerExpected == substr($headerWritten, 0, -SCRIPT_SIZE_PAD)
             and filesize($scriptPath) == (int)substr($headerWritten,-SCRIPT_SIZE_PAD) 
         );
+    }
+    private function scriptHeader($htmlPath) {
+        //??? SIZE_PAD ???
+		$fileMTime = @date('Y/m/d H:i:s', filemtime($htmlPath));
+		return '<?php /* Tplus '.$fileMTime.' '.realpath($htmlPath).' ';
     }
 }
 
