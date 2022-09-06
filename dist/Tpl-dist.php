@@ -71,6 +71,9 @@ class TplValWrapper extends TplusValWrapper {
 	}
 }
 
+// TplValWrapper::_o(.......)
+// @todo apply singleton
+
 class TplLoopHelper extends TplusLoopHelper {
 
 	protected $i;
@@ -86,4 +89,5 @@ class TplLoopHelper extends TplusLoopHelper {
 	}
 }
 
-/** end */
+// TplLoopHelper::_o($i, $s, $k, $v)->IsEven()
+// singleton.  loop

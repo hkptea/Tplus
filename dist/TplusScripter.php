@@ -41,37 +41,31 @@ class Scirpter {
     public static $valWrapper;
     public static $loopHelper;
 
-    public static function script($htmlPath, $scriptPath, $scriptSizePad, $scriptHeader, $config, $test=null) {
+    public static function script($htmlPath, $scriptPath, $sizePad, $header, $config, $test=null) {
         if ($test) {
             return call_user_func_array([self::class, $test['func']], $test['args']);
         }
     
-        self::$valWrapper = '\\'.(isset($config['ValWrapper']) ? $config['ValWrapper'] : 'TplValWrapper');
-        self::$loopHelper = '\\'.(isset($config['LoopHelper']) ? $config['LoopHelper'] : 'TplLoopHelper');
+        self::$valWrapper = '\\'.(empty($config['ValWrapper']) ? 'TplValWrapper' : $config['ValWrapper']);
+        self::$loopHelper = '\\'.(empty($config['LoopHelper']) ? 'TplLoopHelper' : $config['LoopHelper']);
         try {
             self::$userCode = self::getHtml($htmlPath);        
-            self::saveScript(
-                $config['HtmlScriptRoot'], 
-                $scriptPath, 
-                $scriptSizePad, 
-                $scriptHeader, 
-                self::parse()
-            ); 
+            self::saveScript($config['HtmlScriptRoot'], $scriptPath, $sizePad, $header, self::parse()); 
         } catch(SyntaxError $e) {
             if ($test) {
                 throw new \ErrorException($e->getMessage(), 0, E_PARSE, realpath($htmlPath), $currentLine);                
             }
             self::reportSyntaxError($e->getMessage(), $htmlPath, self::$currentLine);
         } catch(FatalError $e) {
-            //@todo duplication
+            //@todo remove duplication
             if ($test) {
                 throw new \ErrorException($e->getMessage(), 0, E_PARSE, realpath($htmlPath), $currentLine);                
             }
             self::reportSyntaxError($e->getMessage(), $htmlPath, self::$currentLine);
         }
     }
-// header
-    private static function saveScript($scriptRoot, $scriptPath, $scriptSizePad, $scriptHeader, $script) {
+
+    private static function saveScript($scriptRoot, $scriptPath, $sizePad, $header, $script) {
         $scriptRoot = preg_replace('~\\\\+~', '/', $scriptRoot);
 
         if (!is_dir($scriptRoot)) {
@@ -101,10 +95,10 @@ class Scirpter {
         }
 
         $headerPostfix = ' */ ?>'."\n";
-        $headerSize = strlen($scriptHeader) + $scriptSizePad + strlen($headerPostfix);
+        $headerSize = strlen($header) + $sizePad + strlen($headerPostfix);
         $scriptSize = $headerSize + strlen($script);
-        $scriptHeader .= str_pad((string)$scriptSize, $scriptSizePad, '0', STR_PAD_LEFT) . $headerPostfix;
-        $script = $scriptHeader . $script;
+        $header .= str_pad((string)$scriptSize, $sizePad, '0', STR_PAD_LEFT) . $headerPostfix;
+        $script = $header . $script;
         $scriptFile = $path.'/'.$file;
         
         if (!file_put_contents($scriptFile, $script, LOCK_EX)) {

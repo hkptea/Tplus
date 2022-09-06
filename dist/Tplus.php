@@ -41,7 +41,13 @@ class Tplus {
 
     private function script($htmlPath, $scriptPath) {
         include_once 'TplusScripter.php';
-        \Tplus\Scripter::script($htmlPath, $scriptPath, SCRIPT_SIZE_PAD, $this->scriptHeader(), $config);
+        \Tplus\Scripter::script(
+            $htmlPath, 
+            $scriptPath, 
+            self::SCRIPT_SIZE_PAD, 
+            $this->scriptHeader($htmlPath), 
+            $config
+        );
     }
 
     private function checkScript($path, $scriptPath) {
@@ -53,7 +59,12 @@ class Tplus {
     }
     
     private function isScriptValid($htmlPath, $scriptPath) {        
-        $this->checkHtmlPath($htmlPath);
+		if (!is_file($htmlPath)) {
+			trigger_error(
+                "Tplus config 'ScriptCheck' is on and Tplus cannot find <b> ".$htmlPath.'</b>', 
+                E_USER_ERROR
+            );
+		}
         if (!is_file($scriptPath)) {
             return false;
         }
@@ -61,26 +72,17 @@ class Tplus {
         return $this->isScriptUpdated($htmlPath, $scriptPath);
     }
 
-    private function checkHtml($htmlPath) {
-		if (!is_file($htmlPath)) {
-			trigger_error(
-                "Tplus config 'ScriptCheck' is on and Tplus cannot find <b> ".$htmlPath.'</b>', 
-                E_USER_ERROR
-            );
-		}
-    }
-
     private function isScriptUpdated($htmlPath, $scriptPath) {
 		$headerExpected = $this->scriptHeader($htmlPath);
         $headerWritten = file_get_contents(
             $scriptPath, false, null, 0, 
-            strlen($headerExpected) + SCRIPT_SIZE_PAD
+            strlen($headerExpected) + self::SCRIPT_SIZE_PAD
         );
 
         return (
-            strlen($headerWritten) > SCRIPT_SIZE_PAD
-            and $headerExpected == substr($headerWritten, 0, -SCRIPT_SIZE_PAD)
-            and filesize($scriptPath) == (int)substr($headerWritten,-SCRIPT_SIZE_PAD) 
+            strlen($headerWritten) > self::SCRIPT_SIZE_PAD
+            and $headerExpected == substr($headerWritten, 0, -self::SCRIPT_SIZE_PAD)
+            and filesize($scriptPath) == (int)substr($headerWritten,-self::SCRIPT_SIZE_PAD) 
         );
     }
     private function scriptHeader($htmlPath) {
@@ -90,8 +92,8 @@ class Tplus {
 }
 
 class TplusValWrapper {
-
-    public static function _o($val) {
+    // @todo singleton possible??
+    public static function _create($val) {
         if (is_object($val)) {
             return $val;
         }
@@ -141,7 +143,8 @@ class TplusValWrapper {
 class TplusLoopHelper {
 
     protected $instance;
-    public static function _o($i, $s, $k, $v) {
+
+    public static function _create($depth, $i, $s, $k, $v) {
         if (empty(static::$instance)) {
             static::$instance = new static;
         }
@@ -150,7 +153,6 @@ class TplusLoopHelper {
         static::$instance->k = $k;
         static::$instance->v = $v;
     }
-    //function __construct() { }
 }
 
 class TplusRuntimeError extends Exception {
