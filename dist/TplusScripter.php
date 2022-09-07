@@ -628,19 +628,22 @@ class Expression {
             // [ UNARY|OPERAND|CLOSE  |  OPERATOR|BI_UNARY|OPEN or 0 ]
             // if $prevTokenGroup is UNARY, true has been already returned.
             // if $prevTokenGroup is OPERAND|CLOSE, + - are binary operator.
-            // if $prevTokenGroup is OPERATOR|O_OPERATOR|BI_UNARY|OPEN or 0,  + and - are unary operator.
+            // if $prevTokenGroup is OPERATOR|O_OPERATOR|BI_UNARY|OPEN or 0,
+            //      + and - are unary operator.
             return ($prevTokenGroup & (Token::OPERAND|Token::CLOSE)) ? false : true;
         }
         return false;
     }      
 
-    private function parseReserved($token) {
-        // this 는 그냥 처음부터 객체로 정해짐
-        // 네임 체인이 없어야 함. this가 네임 체인 중간에 올 수 없음
-        //
-        if ($toekn === 'this') {
-
+    private function parseReserved($token) {        
+        if ($token !== 'this') {
+            return $token;
         }
+        if (Name::chain()) {
+            throw new SyntaxError('"this" is reserved word for tplus object');
+        }
+        Name::addToChain('this');
+        return '';
     }
 
     private function parseName($token) {
@@ -771,13 +774,33 @@ class Name {
             return $this->parseLoopMember();
         }
 
+        if (preg_match('/^this\.?/', self::$chain)) {
+            return $this->parseThis();
+        }
+
         if (preg_match('/^\s*\(', Scipter::$userCode)) {
-            return $this->parseFunction($token);
+            return $this->parseFunction();
         }
 
         return parseVariable();
     }
     
+    private static function parseThis() {
+        $names = explode('.', self::$chain);
+        
+        self::initChain();
+
+        if (!preg_match('/^\s*\(', Scipter::$userCode)) {
+            if (count($names) === 1) {
+                return '$this';
+            }
+            throw new SyntaxError('access of object property is not allowd.');
+        }
+        if (count($names) !== 2) {
+            throw new SyntaxError('access of object property is not allowd.');
+        }
+        return '$this->'.$names[1];
+    }
     private static function parseLoopMember($token) {
         preg_match('/^(\.+)(.+)$/s', self::$chain, $matches);
         $dots  = $matches[1];
@@ -819,17 +842,26 @@ class Name {
         return $isMethod ? $script.'->'.$method : $script;
     }
 
-    private static function parseFunction($token) {
+    private static function parseFunction() {
         if (!strstr(self::$chain, '.')) { // function.
-            if (!function_exists($token)) {
-                throw new SyntaxError('function '.$token.'() is not defined.');
+            $func_name = self::$chain;
+            if (self::isConstantName($func_name)) {
+                throw new SyntaxError($func_name.'() has constant name.');
+            }
+            if (!function_exists($func_name)) {
+                throw new SyntaxError('function '.$func_name.'() is not defined.');
             }
             self::initChain();
-            return $token;
+            return $func_name;
         }
         
         // method or function in namespace
         $names = explode('.', self::$chain);
+        foreach($names as $name) {
+            if (self::isConstantName($name)) {
+                throw new SyntaxError(self::$chain.'() has constant name.');
+            }
+        }
         $func  = array_pop($names);            
         $name  = array_pop($names);
         $namespace = empty($names) ? '' : '\\'.implode('\\', $names);
@@ -906,16 +938,12 @@ class Name {
             $var .= '["'.$name.'"]';
         }
         return $var;
-        
     }
     private static function isConstantName($token) {
-
         return preg_match('/\P{Lu}/', $token) and !preg_match('/\P{Ll}/', $token);
-
     }
+
     private static function isClassName($token) {
-
         return preg_match('/^\P{Lu}/', $name) and preg_match('/\P{Ll}/', $token);
-
     }
 }
