@@ -422,14 +422,14 @@ class Token { // DOT|OPERAND|OPERATOR|O_OPERATOR|OPEN|CLOSE|UNARY|BI_UNARY
         ],
         self::OPERAND => [
             'Reserved'  =>'(?:true|false|null|this)(?![\p{L}p{N}_])',
-            'Name'      =>'[\p{L}_][\p{L}p{N}_]*',
-            'Integer'   =>'\d+(?![\p{L}p{N}_])',
+            'Name'      =>'[\p{L}_][\p{L}\p{N}_]*',
+            //'Integer'   =>'\d+(?![\p{L}\p{N}_])',
             'Number'    =>'(?:\d+(?:\.\d*)?(?:[eE][+\-]?\d+)',
             'Quoted'    =>'(?:"(?:\\\\.|[^"])*")|(?:\'(?:\\\\.|[^\'])*\')',
         ],
         self::OPERATOR => [
             'Xcrement'  => '\+\+|--',
-            'Comparison'=> '===?|!==?|<|>|<=|>=',       // check a == b == c
+            'Comparison'=> '===?|!==?|<=?|>=?',       // check a == b == c
             'Logic'     => '&&|\|\|',                   
             'Elvis'     => '\?:|\?\?',
             'ArithOrBit'=> '[%*/&|\^]|<<|>>',           // check quoted
@@ -717,9 +717,6 @@ class Expression {
         return ',';
     }
  
-    private function parseInteger($token) {
-        return $token;
-    }
     private function parseNumber($token) {
         return $token;
     }
@@ -746,6 +743,22 @@ class Expression {
     }
     private function parseMinus() {
         return ' -';
+    }
+
+    private function parseXcrement($token) {
+        throw new SyntaxError('Increment ++ or decrement -- operator are not allowd.');
+    }
+    private function parseComparison($token) {
+        return $token;  // === == !== != < > <= >=      @todo check a == b == c
+    }
+    private function parseLogic($token) {
+        return $token;  // && \\
+    }
+    private function parseElvis($token) {
+        return $token;  // ?: ??
+    }
+    private function parseArithOrBit($token) {
+        return $token;  // % * / & ^ << >>              @todo check if operand is string
     }
 }
 
