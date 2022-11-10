@@ -568,6 +568,7 @@ class Expression {
             }
         }
     }
+    
     private function assembleScriptTokens() {
         $result = '';
         foreach ($this->scriptTokens as $scriptToken) {
