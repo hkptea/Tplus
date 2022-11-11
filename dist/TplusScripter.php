@@ -1,12 +1,10 @@
 <?php
 /**
     ------------------------------------------------------------------------------
-    Tplus 1.0
-    Released
-    Source code and manual:
-    Community:
+    Tplus 1.0 Draft
+    Released 2022-11-11
 
-
+    
     The MIT License (MIT)
     
     Copyright: (C) 2022 Hyeonggil Park
