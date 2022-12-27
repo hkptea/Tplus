@@ -31,7 +31,7 @@
 
 namespace Tplus;
 
-class Scirpter {
+class Scripter {
     
     private static $currentLine = 1;
 
