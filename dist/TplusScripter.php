@@ -34,10 +34,9 @@ namespace Tplus;
 class Scripter {
     
     private static $currentLine = 1;
-
-    public static $userCode;
-    public static $valWrapper;
-    public static $loopHelper;
+    private static $userCode;
+    private static $valWrapper;
+    private static $loopHelper;
 
     public static function script($htmlPath, $scriptPath, $sizePad, $header, $config, $test=null) {
         if ($test) {
@@ -111,11 +110,14 @@ class Scripter {
         self::$userCode = substr(self::$userCode, strlen($parsedUserCode));
         self::$currentLine += substr_count($parsedUserCode,"\n");
     }
+    public static function userCode() {
+        return self::$userCode;
+    }
 
-    public static function getValWrapperMethods() {
+    public static function valWrapperMethods() {
         return self::getMethods(self::$valWrapper);
     }
-    public static function getLoopHelperMethods() {
+    public static function loopHelperMethods() {
         return self::getMethods(self::$loopHelper);
     }
     private static function getMethods($class, $message) {
@@ -144,9 +146,9 @@ class Scripter {
         };
 
         $resultScript='';
-        while (self::$userCode) {
+        while ($userCode=self::userCode()) {
             [$parsedUserCode, $userCodeBeforeTag, $htmlLeftCmnt, $leftTag, $escape, $command]
-                = self::findLeftTagAndCommand();
+                = self::findLeftTagAndCommand($userCode);
         
             $resultScript .= $userCodeBeforeTag;
 
@@ -160,7 +162,8 @@ class Scripter {
                 $resultScript .= $htmlLeftCmnt.$leftTag.substr($escape, 1).$command;
 
             } else if ('*' === $command) {
-                self::removeComment();
+                $comment = self::getComment($userCode);
+                self::decreaseUserCode($comment);
 
             } else {
                 $resultScript .= Statement::script($command);
@@ -200,7 +203,7 @@ class Scripter {
         return '';
     }
 
-    private static function findLeftTagAndCommand() {
+    private static function findLeftTagAndCommand($userCode) {
         $pattern =
         '~
             (.*?)
@@ -210,11 +213,11 @@ class Scripter {
             ([=@?:/*])
         ~xs';
 
-        if (preg_match($pattern, self::$userCode, $matches)) {
+        if (preg_match($pattern, $userCode, $matches)) {
             return $matches; 
         }
 
-        return [self::$userCode, self::$userCode, '', '', '', ''];
+        return [$userCode, $userCode, '', '', '', ''];
     }
 
     private static function reportSyntaxError($message, $htmlPath, $currentLine)
@@ -230,7 +233,7 @@ class Scripter {
         exit;
     }
 
-    private static function removeComment() {
+    private static function getComment($userCode) {
         $pattern =
         '~  
             ^.*?
@@ -238,13 +241,9 @@ class Scripter {
             (?:\s*-->)?
         ~xs';
         
-        if (preg_match($pattern, self::$userCode, $matches)) {
-            self::decreaseUserCode($matches[0]);
-
-        } else {
-            self::$userCode = '';
-
-        }
+        return preg_match($pattern, $userCode, $matches)
+            ? $matches[0]
+            : $userCode;
     }
 }
 
@@ -378,7 +377,7 @@ class Statement {
             (?:\s*-->)?
         ~xs';
     
-        if (!preg_match($pattern, Scripter::$userCode, $matches)) {
+        if (!preg_match($pattern, Scripter::userCode(), $matches)) {
             throw new SyntaxError('Tag not correctly closed.');
         }
     
@@ -466,7 +465,7 @@ class Expression {
        : and , are not openers but are tokens belonging to an opener and create new expression object.
      */
     private $opener = '';
-    private $scriptTokens = [];
+    private $scriptedTokens = [];
     private $KVDelim = false;
     private $wrappingStartIndex  = -1;
 
@@ -481,9 +480,9 @@ class Expression {
         return $expression->assembleScriptTokens();
     }
 
-    private function parse($caseAvailable=false, $recursive=false, $parentOpener='') {
+    private function parse($caseAvailable=false, $parentOpener='') {
 
-        $this->scriptTokens = [];
+        $this->scriptedTokens = [];
 
         $prevTokenGroup = 0;
         $prevTokenName  = '';
@@ -491,7 +490,7 @@ class Expression {
         Name::initChain();
         
         for (;;) {
-            if ($this->isExpressionCompleted($caseAvailable, $recursive, $parentOpener, $prevTokenGroup)) {
+            if ($this->isExpressionFinished($caseAvailable, $parentOpener, $prevTokenGroup)) {
                 break;
             }
 
@@ -500,7 +499,7 @@ class Expression {
             foreach (Token::GROUPS as $currTokenGroup => $tokenNames) {
                 foreach ($tokenNames as $currTokenName => $pattern) {
                     $pattern = '#^('.$pattern.')#s';
-                    if (!preg_match($pattern, Scripter::$userCode, $matches)) {
+                    if (!preg_match($pattern, Scripter::userCode(), $matches)) {
                         continue;
                     }
 
@@ -513,13 +512,13 @@ class Expression {
                     }
                     if ( $prevTokenGroup & (Token::OPERAND|Token::CLOSE) ) {  
                         if ( $currTokenGroup & (Token::OPERAND|Token::UNARY) ) {
-                            //@todo&note CLOSE before OPEN is processed by according method.
+                            //@todo Token::CLOSE before Token::OPEN should be processed by according method.
                             throw new SyntaxError('Unexpected '.$token);
                         }
                     } else {    
                         //@if $prevTokenGroup is DOT|OPERATOR|O_OPERATOR|OPEN|UNARY|BI_UNARY
                         if ( $currTokenGroup & (Token::OPERATOR|Token::O_OPERATOR|Token::CLOSE) ) {
-                            //@note If $currTokenGroup is CLOSE, $prevTokenGroup is always OPERAND. {#REF}
+                            //@note If $currTokenGroup is CLOSE, $prevTokenGroup is always OPERAND. 
                             throw new SyntaxError('Unexpected '.$token);
                         }
                     }
@@ -538,7 +537,7 @@ class Expression {
                 $this->setWrappingStartIndex($currTokenGroup);
             }
 
-            $this->scriptTokens[] 
+            $this->scriptedTokens[] 
                 = $this->{'parse'.$currTokenName}($token, $prevTokenGroup, $prevTokenName, $isUnaryAttached);               
 
             if ($currTokenGroup & (Token::UNARY|Token::BI_UNARY)) {
@@ -557,11 +556,12 @@ class Expression {
     private function setWrappingStartIndex($currTokenGroup) {
         if ($this->wrappingStartIndex === -1 ) {
             if ($currTokenGroup & (Token::OPERAND|Token::OPEN|Token::DOT)) {
-                //@note dot(.) is higher than unary operator in priority.
-                $this->wrappingStartIndex = count($this->scriptTokens);
+                //@note dot(.) has higher priority than unary operator.
+                $this->wrappingStartIndex = count($this->scriptedTokens);
             }
         } else {
-            if ($currTokenGroup & (Token::OPERATOR|Token::O_OPERATOR|Token::UNARY|Token::BI_UNARY)) { // exclude CLOSE
+            if ($currTokenGroup & (Token::OPERATOR|Token::O_OPERATOR|Token::UNARY|Token::BI_UNARY)) { // CLOSE is excluded
+                //@note wrapping is canceled.
                 $this->wrappingStartIndex = -1;
             }
         }
@@ -569,7 +569,7 @@ class Expression {
     
     private function assembleScriptTokens() {
         $result = '';
-        foreach ($this->scriptTokens as $scriptToken) {
+        foreach ($this->scriptedTokens as $scriptToken) {
             $result .= is_object($scriptToken) 
                 ? $scriptToken->assembleScriptTokens() 
                 : $scriptToken;
@@ -579,43 +579,51 @@ class Expression {
 
     private function startNewExpression() {
         $expression = new Expression();
-        $this->scriptTokens[] = $expression;
-        $expression->parse(false, true, $this->opener);
+        $this->scriptedTokens[] = $expression;
+        $expression->parse(false, $this->opener); //@question: how about returning $expression.
     }
 
-    private function isExpressionCompleted() {
-        if (!Scripter::$userCode) {
+    private function isExpressionFinished($caseAvailable, $parentOpener, $prevTokenGroup) {
+        $userCode = Scripter::userCode();
+        if (! $userCode ) {
             throw new SyntaxError('Template file ends without tag close.');
         }
-        if (!$this->isExpressionValid($prevTokenGroup, $parentOpener)) {
+        if (! $this->isExpressionEndedValidly($prevTokenGroup, $parentOpener) ) {
             return false;
         }
-        if ($recursive) {
-            if ( strstr( ')}]:,', Scripter::$userCode[0] ) ) {
-                return true;
-            }
-            return false;
+        if ($parentOpener) {
+            return ( strstr( ')}]:,', $userCode[0] ) ) ? true : false;
+            //@question: 오프너에 해당하는 클로저인지 자세한 테스트는 나중에 하고 있었던거 같은데 확인해보자. 그게 최선인지도
         }
-        if (Scripter::$userCode[0] === ']') {
+        if (preg_match('/\s*\]/', $userCode[0])) {
             return true;
         }
-        if (Scripter::$userCode[0] === ':') {
-            if ($caseAvailable) {
+        if (preg_match('/\s*\:/', $userCode[0])) {
+            if ($caseAvailable) {   //@question: 이거는 Tplus 스위치구문 이라는 뜻인데 확인해보고 이름을 바꿔야할듯
                 return true;
             }
             throw new SyntaxError('Unexpected :');
         }
         return false;      
     }
-    private function isExpressionValid($prevTokenGroup, $parentOpener) {
+    private function isExpressionEndedValidly($prevTokenGroup, $parentOpener) {
+        if ($prevTokenGroup & (Token::OPERAND|Token::CLOSE) and empty($this->opener)) {
+            return true;
+        } 
         if (!$prevTokenGroup && strstr('fjJ', $parentOpener)) {
             return true;
         }
-        return (
-            $prevTokenGroup & (Token::OPERAND|Token::CLOSE)
-            and empty($this->opener)   
-        );
+        return false;
     }
+    /*private function isExpressionValid($prevTokenGroup, $parentOpener) {
+        if (!$prevTokenGroup && strstr('fjJ', $parentOpener)) {
+            return true;
+        }
+        if (
+            $prevTokenGroup & (Token::OPERAND|Token::CLOSE)
+            and empty($this->opener) 
+        );
+    }*/
     private function isUnaryAttached($isUnaryAttached, $prevTokenGroup, $currTokenGroup) {
         if ($isUnaryAttached) {
             return ($currTokenGroup & (Token::UNARY|Token::BI_UNARY)) ? true : false;
@@ -727,8 +735,8 @@ class Expression {
         }
         if ($prevTokenName == 'Plus') {
             // @policy: Binary plus operator before string literal is changed to concat operator.
-            array_pop( $this->scriptTokens );
-            array_push($this->scriptTokens, '.');
+            array_pop( $this->scriptedTokens );
+            array_push($this->scriptedTokens, '.');
         }
         return $token;
     }
