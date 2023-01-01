@@ -92,19 +92,24 @@ class Tplus {
 }
 
 class TplusValWrapper {
-    // @todo singleton possible??
-    public static function _create($val) {
+    
+    protected $instance;
+
+    public static function _o($val) {
         if (is_object($val)) {
             return $val;
         }
-        return new static($val);
+        if (empty(static::$instance)) {
+            static::$instance = new static;
+        }
+        static::$instance->val = $val;
     }
 
     protected function __construct($val) {
         $this->val = $val;
     }
 
-    protected function _iterate() {
+    protected function iterate() {
 		$args = func_get_args();
 		$method = array_shift($args);
 		$arr = [];
@@ -144,7 +149,7 @@ class TplusLoopHelper {
 
     protected $instance;
 
-    public static function _create($depth, $i, $s, $k, $v) {
+    public static function _o($i, $s, $k, $v) {
         if (empty(static::$instance)) {
             static::$instance = new static;
         }
