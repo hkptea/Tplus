@@ -1,8 +1,6 @@
 <?php
 
-if ( ! class_exists('Tplus') ) {
-	include 'Tplus.php';
-}
+include_once dirname(__file__).'/Tplus.php';
 
 class Tpl {	
 	private static function config() {
@@ -65,7 +63,7 @@ class TplValWrapper extends TplusValWrapper {
 	
 	public function format($decimals=0, $decimal_separator=".", $thousands_seperator=",") {
 		if (is_array($this->val)) {
-			return $this->_iterate(__FUNCTION__, $decimals, $decimal_separator, $thousands_seperator);
+			return parent::iterate(__FUNCTION__, $decimals, $decimal_separator, $thousands_seperator);
 		}
 		return number_format($this->val, $decimals, $decimal_separator, $thousands_seperator);
 	}

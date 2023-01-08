@@ -11,12 +11,8 @@ class Tplus {
         $this->config = $config;
     }
 
-    public function assign($var, $val=null) {
-        if (is_array($var)) {
-            array_merge($this->vals, $var);
-        } else if (is_string($var)) {
-            $this->vals[$var] = $val;            
-        }
+    public function assign($vals) {
+        $this->vals = array_merge($this->vals, $vals);
         return '';
     }
 
@@ -33,20 +29,20 @@ class Tplus {
             );
         }
 
-		ob_start();
+		//ob_start();
         $V = &$this->vals;
 		include $scriptPath;
-        return ob_get_clean();
+        //return ob_get_clean();
     }
 
     private function script($htmlPath, $scriptPath) {
-        include_once 'TplusScripter.php';
+        include_once dirname(__file__).'/TplusScripter.php';
         \Tplus\Scripter::script(
             $htmlPath, 
             $scriptPath, 
             self::SCRIPT_SIZE_PAD, 
             $this->scriptHeader($htmlPath), 
-            $config
+            $this->config
         );
     }
 
@@ -54,7 +50,8 @@ class Tplus {
         $htmlPath = $this->config['HtmlRoot'].$path;
 
         if (!$this->isScriptValid($htmlPath, $scriptPath)) {
-            $this->script($this->config, $htmlPath, $scriptPath);
+            //$this->script($this->config, $htmlPath, $scriptPath);
+            $this->script($htmlPath, $scriptPath);
         }
     }
     
@@ -86,14 +83,14 @@ class Tplus {
         );
     }
     private function scriptHeader($htmlPath) {
-		$fileMTime = @date('Y/m/d H:i:s', filemtime($htmlPath));
+		$fileMTime = @date('Y-m-d H:i:s', filemtime($htmlPath));
 		return '<?php /* Tplus '.$fileMTime.' '.realpath($htmlPath).' ';
     }
 }
 
 class TplusValWrapper {
     
-    protected $instance;
+    static protected $instance;
 
     public static function _o($val) {
         if (is_object($val)) {
@@ -105,9 +102,9 @@ class TplusValWrapper {
         static::$instance->val = $val;
     }
 
-    protected function __construct($val) {
+    /*protected function __construct($val) {
         $this->val = $val;
-    }
+    }*/
 
     protected function iterate() {
 		$args = func_get_args();
@@ -137,6 +134,10 @@ class TplusValWrapper {
 
     public function ucfirst() {
         return ucfirst($this->val);
+    }
+
+    public function substr($a, $b=null) {
+        return substr($this->val, $a, $b);
     }
 
     public function concat() {

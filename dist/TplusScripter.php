@@ -97,12 +97,12 @@ class Scripter {
         $scriptSize = $headerSize + strlen($script);
         $header .= str_pad((string)$scriptSize, $sizePad, '0', STR_PAD_LEFT) . $headerPostfix;
         $script = $header . $script;
-        $scriptFile = $path.'/'.$file;
+        $scriptFile = $path.'/'.$filename;
         
         if (!file_put_contents($scriptFile, $script, LOCK_EX)) {
             throw new FatalError('fail to write file '.$scriptFile.' check permission or unknown problem.');
         }
-        if (!chmod($path.'/'.$file, $filePerms)) {
+        if (!chmod($path.'/'.$filename, $filePerms)) {
             throw new FatalError('fail to set permission of file '.$scriptFile.' check permission or unknown problem.');
         }
     }
@@ -118,7 +118,7 @@ class Scripter {
     public static function loopHelperMethods() {
         return self::getMethods(self::$loopHelper);
     }
-    private static function getMethods($class, $message) {
+    private static function getMethods($class) {
         static $methods = [];
         if (empty($methods[$class])) {
             $methods[$class] = [];
@@ -126,7 +126,7 @@ class Scripter {
                 //@todo "There is no ... class $class which contains method ....()"
                 throw new FatalError('--- class "'.substr($class, 1).'" does not exist.');
             }
-            $reflectionMethods = (new ReflectionClass($class))->getMethods(ReflectionMethod::IS_PUBLIC);
+            $reflectionMethods = (new \ReflectionClass($class))->getMethods(\ReflectionMethod::IS_PUBLIC);
             foreach ($reflectionMethods as $m) {
                 if (!$m->isStatic()) {
                     $methods[$class][] = strtolower($m->name);
@@ -181,14 +181,14 @@ class Scripter {
         return str_replace("\r", '' ,$html);
     }
 
-    private static function findScriptTag($html) {
+    private static function findScriptTag() {
         $scriptTagPattern = ini_get('short_open_tag') ? '~(<\?)~i' : '~(<\?(php\s|=))~i';
         // @note <% and <script language=php> removed since php 7.0
         // @todo check short_open_tag if whitespace is mandatory after <?  in v5.x.
 
         $split = preg_split(
             $scriptTagPattern,
-            $html, 
+            self::$userCode,
             2, 
             PREG_SPLIT_DELIM_CAPTURE
         );
@@ -221,11 +221,12 @@ class Scripter {
     private static function reportSyntaxError($message, $htmlPath, $currentLine)
     {
         $htmlPath = realpath($htmlPath);
+        $messageTitle = 'Tplus Syntax Error: ';
         if (ini_get('log_errors')) {
-            error_log($message.' in '.$htmlPath.' on line '.$currentLine);
+            error_log($messageTitle. $message.' in '.$htmlPath.' on line '.$currentLine);
         }
         if (ini_get('display_errors')) {
-            echo htmlspecialchars($message).' in <b>'.$htmlPath.'</b> on line <b>'.$currentLine.'</b>';
+            echo '<b>'.$messageTitle.'</b>'.htmlspecialchars($message).' in <b>'.$htmlPath.'</b> on line <b>'.$currentLine.'</b>';
             // ? ob_end_flush();
         }
         exit;
@@ -261,9 +262,10 @@ class Stack {
 		return empty($this->items);
 	}
 	public function count() {
-		return func_num_args() > 0
+		return  (func_num_args() > 0) 
             ? array_count_values($this->items)[func_get_arg(0)]
-            : count($this->items) ;
+            : count($this->items) 
+        ;
 	}
     public function push($item) {
         $this->items[] = $item;
@@ -326,8 +328,9 @@ class Statement {
     }
 
     private static function parseEcho() {
+        $expression = Expression::script();
         self::parseRightTag();
-        return '<?= '.Expression::script().' ?>';
+        return '<?= '.$expression.' ?>';
     }
 
     private static function parseEnd() {
@@ -348,7 +351,7 @@ class Statement {
             \]
             (?:\s*-->)?
         ~xs';
-    
+        echo Scripter::$userCode;
         if (!preg_match($pattern, Scripter::$userCode, $matches)) {
             throw new SyntaxError('Tag not correctly closed.');
         }
@@ -360,7 +363,8 @@ class Statement {
         self::$commandStack->push('@');
         $expressionScript = Expression::script();
 
-        [$a, $i, $s, $k, $v] = self::loopNames(self::loopDepth());
+
+        ['a'=>$a, 'i'=>$i, 's'=>$s, 'k'=>$k, 'v'=>$v] = self::loopNames(self::loopDepth());
 
         return $a.'='.$expressionScript.';'
             .'if (is_array('.$a.') and !empty('.$a.')) {'
@@ -429,10 +433,10 @@ class Statement {
             $name = '$L'.$depth;  // $L1, $L1i, $L2i, $L1s, ...
             $names[$depth] = ['a'=>$name, 'i'=>$name.'i', 's'=>$name.'s', 'k'=>$name.'k', 'v'=>$name.'v'];
         }
-        $names[$depth];
+        return $names[$depth];
     }
     public static function loopDepth() {
-        self::$commandStack->count('@');
+        return self::$commandStack->count('@');
     }
 }
 
@@ -458,7 +462,7 @@ class Token { // DOT|OPERAND|OPERATOR|O_OPERATOR|OPEN|CLOSE|UNARY|BI_UNARY
             'Reserved'  =>'(?:true|false|null|this)(?![\p{L}p{N}_])',
             'Name'      =>'[\p{L}_][\p{L}\p{N}_]*',
             //'Integer'   =>'\d+(?![\p{L}\p{N}_])',
-            'Number'    =>'(?:\d+(?:\.\d*)?(?:[eE][+\-]?\d+)',
+            'Number'    =>'(?:\d+(?:\.\d*)?)(?:[eE][+\-]\d+)?',
             'Quoted'    =>'(?:"(?:\\\\.|[^"])*")|(?:\'(?:\\\\.|[^\'])*\')',
         ],
         self::OPERATOR => [
@@ -475,12 +479,12 @@ class Token { // DOT|OPERAND|OPERATOR|O_OPERATOR|OPEN|CLOSE|UNARY|BI_UNARY
         ],
         self::OPEN => [
             'ParenthesisOpen'=>'\(',
-            'BraceOpen'=>'{',
+            'BraceOpen'=>'\{',
             'BracketOpen'=>'\[',        
         ],
         self::CLOSE => [
             'ParenthesisClose'=>'\)',
-            'BraceClose'=>'}',
+            'BraceClose'=>'\}',
             'BracketClose'=>'\]',   
         ],
         self::BI_UNARY => [
@@ -494,6 +498,16 @@ class Token { // DOT|OPERAND|OPERATOR|O_OPERATOR|OPEN|CLOSE|UNARY|BI_UNARY
 }
 
 
+
+class Opener {
+    const FUNC  = 1;    //  func(
+    const PAR   = 2;    //  (
+    const IDXB  = 4;    //  arr{
+    const IDXC  = 8;    //  arr[
+    const JSNB  = 16;   //  {
+    const JSNC  = 32;   //  [
+    const T_IF  = 64;   //  ?
+}
 
 class Expression {
 
@@ -528,16 +542,21 @@ class Expression {
 
         $prevTokenGroup = 0;
         $prevTokenName  = '';
+        $userCode = '';
         $isUnaryAttached= false;         
         NameDot::initChain();
         
+        //echo '###new thread###'.$prevTokenGroup.'###'.'<br/>';
+        //echo Scripter::$userCode;
+
         for (;;) {
             if ($this->isExpressionFinished($caseCmdPossible, $parentOpener, $prevTokenGroup)) {
+                //echo '^^^^^^^^^';
                 break;
             }
 
-            $userCode = '';
             $token = null;
+
             foreach (Token::GROUPS as $currTokenGroup => $tokenNames) {
                 foreach ($tokenNames as $currTokenName => $pattern) {
                     $pattern = '#^('.$pattern.')#s';
@@ -545,56 +564,70 @@ class Expression {
                         continue;
                     }
 
-                    $token = $matches[1];
+                    //echo '###'.$prevTokenGroup.'###'.'<br/>';
+
+                    $token = $matches[0];
                     $userCode .= $token;
                     Scripter::decreaseUserCode($token);
 
                     if ($currTokenGroup === Token::SPACE) {
                         continue 3;
                     }
-                    if ( $prevTokenGroup & (Token::OPERAND|Token::CLOSE) ) {  
+                    //echo '(('.$prevTokenGroup.'%%'.$token.'))';
+                    if ( in_array($prevTokenGroup, [Token::OPERAND,Token::CLOSE]) ) {  
+                        
                         if ( $currTokenGroup & (Token::OPERAND|Token::UNARY) ) {
+                            //echo '=='.$prevTokenGroup.'==';
                             //@todo Token::CLOSE before Token::OPEN should be processed by according method.
                             throw new SyntaxError('Unexpected '.$token);
                         }
                     } else {    
+                            
                         //@if $prevTokenGroup is DOT|OPERATOR|O_OPERATOR|OPEN|UNARY|BI_UNARY
                         if ( $currTokenGroup & (Token::OPERATOR|Token::O_OPERATOR|Token::CLOSE) ) {
+                            //echo '^^';
                             //@note If $currTokenGroup is CLOSE, $prevTokenGroup is always OPERAND. 
                             throw new SyntaxError('Unexpected '.$token);
                         }
                     }
                     if ($prevTokenGroup === Token::DOT and $currTokenName !== 'Name') {
+                        //echo '$$';
                         throw new SyntaxError('Unexpected '.$token);
                     }
                    
                     break 2;
                 }
             }
+            //echo '????';
+            //echo '^'.$token.'^'.$parentOpener.'^<br/>';
             if (is_null($token)) {
                 throw new SyntaxError('Invalid expression: '.$userCode);
             }
-
+            //echo '^'.$token.'^'.$parentOpener.'^<br/>';
             if ($currTokenGroup !== Token::CLOSE) {
                 $this->setWrappingStartIndex($currTokenGroup);
             }
-
+            //echo '^'.$token.'^'.$parentOpener.'^<br/>';
             
-            if ($scriptedToken = $this->{'parse'.$currTokenName}(
-                                                $token, $prevTokenGroup, $prevTokenName, $isUnaryAttached)) {
-                $this->scriptedTokens[] = $scriptedToken;
-            }
-
+            $this->scriptedTokens[] = $this->{'parse'.$currTokenName}(
+                                                $token, $prevTokenGroup, $prevTokenName, $isUnaryAttached);
+            //    echo '^^'.$scriptedToken.';;';
+            //    $this->scriptedTokens[] = $scriptedToken;
+            
+            
             if ($currTokenGroup & (Token::UNARY|Token::BI_UNARY)) {
                 $isUnaryAttached = $this->isUnaryAttached($isUnaryAttached, $prevTokenGroup, $currTokenGroup);
-
+                
             } else if ($currTokenGroup & (Token::OPEN|Token::O_OPERATOR)) {
-                $currTokenGroup = OPERAND;
-                $this->scriptedTokens[] = $this->parseNewExpression();
+                
+                $this->parseNewExpression();
+                $currTokenGroup = Token::OPERAND;
             }
-
+            
+            //echo '????';
             $prevTokenGroup = $currTokenGroup;
             $prevTokenName  = $currTokenName;
+            //echo '////';
         }
     } 
     private function assembleScriptTokens() {
@@ -607,9 +640,12 @@ class Expression {
         return $result;
     }
     private function parseNewExpression() {
+        echo '###new thread start###'.'<br/>';
         $expression = new Expression();
+        
         $expression->parse(false, $this->opener); //@question: how about returning $expression.
-        return $expression;
+        echo '###new thread end###'.'<br/>';
+        $this->scriptedTokens[] = $expression;
     }
     private function isExpressionFinished($caseCmdPossible, $parentOpener, $prevTokenGroup) {
         $userCode = Scripter::$userCode;
@@ -622,26 +658,36 @@ class Expression {
         } 
 
         if ($this->opener === '?' and $this->ternaryCount !== 0) {
+            
             return false;
         }
 
-        if ($parentOpener) {
+        if ($parentOpener) {            
             switch ($parentOpener) {
-                case 'f': $p = '\)\,';      break;
+                case 'f': $p = '\)|\,';      break;
                 case 'p': $p = '\)';        break;
                 case 'i': $p = '\}';        break;
-                case 'j': $p = '\}\:\,';    break;
+                case 'j': $p = '\}|\:|\,';    break;
                 case 'I': $p = '\]';        break;
-                case 'J': $p = '\]\:\,';    break;
-                case '?': $p ='\?\:';
+                case 'J': $p = '\]|\:|\,';    break;
+                case '?': $p ='\?|\:';
             }
-            if (!preg_match('~^\s*'.$p.'~', $userCode)) {
-                return false;
+            //echo '<br/>'.$parentOpener.'#'.$prevTokenGroup;
+            //echo '@'.$this->opener.$userCode.'$';
+            if (preg_match('~^\s*('.$p.')~', $userCode, $matches)) {
+                //echo $parentOpener.'@@'.$userCode;
+                echo $matches[1];
+                if (!$prevTokenGroup) {
+                    switch ($parentOpener) {
+                        case 'f': return $matches[1]==')';
+                        case 'j': return $matches[1]=='}';
+                        case 'J': return $matches[1]==']';
+                        default : return false;
+                    }
+                }
+                    
+                return true;
             }
-            if (!$prevTokenGroup and !strstr('fjJ', $parentOpener)) {
-                return false;
-            }
-            return true;
         }
 
         if (preg_match('/^\s*\]/', $userCode)) {
@@ -649,6 +695,9 @@ class Expression {
         }
 
         if (preg_match('/^\s*\:/', $userCode)) {
+            if (in_array($this->opener, ['j', 'J'])) {
+                return false;
+            }
             if ($caseCmdPossible) {
                 return true;
             }
@@ -710,7 +759,7 @@ class Expression {
     }
     private function parseName($token) { // variable, function, object, method, array, key, namespace, class
         if ($this->onMethodChaining) {
-            if (!preg_match('/^\s*\(', Scipter::$userCode)) {
+            if (!preg_match('/^\s*\(', Scripter::$userCode)) {
                 throw new SyntaxError('unexpected'. '.'.$token);
             }
             $this->insertValWrapper();
@@ -736,7 +785,11 @@ class Expression {
         return $token;
     }
     private function parseBraceOpen($token, $prevTokenGroup, $prevTokenName) {
-        $this->opener = ($prevTokenName === 'Name') ? 'i' : 'j';     // indexer or json
+        if ($prevTokenName === 'Name') {
+            $this->opener = 'i';
+        } else {
+            $this->opener = 'j';     // indexer or json
+        }
         return '[';
     }
     private function parseBracketOpen($token, $prevTokenGroup, $prevTokenName) {
@@ -750,28 +803,31 @@ class Expression {
     }
 
     private function parseParenthesisClose($token) {
-        $this->_parseClose($token, 'fp');
+        $this->_parseClose($token, ['f','p']);
         return $token;
     }
     private function parseBraceClose($token) {
-        $this->_parseClose($token, 'ij');
+        //echo 3333333;
+        //echo $this->opener;
+        $this->_parseClose($token, ['i','j']);
         //return $token;
         return ']';
     }
     private function parseBraketClose($token) {
-        $this->_parseClose($token, 'IJ');
+        $this->_parseClose($token, ['I','J']);
         return $token;
     }
     private function _parseClose($token, $openers) {
-        if (false === strstr($openers, $this->opener)) {
+        if (!in_array($this->opener, $openers)) {
             throw new SyntaxError('Unexpected '.$token);
         }
-        if (strstr('jJ', $this->opener)) {
+        if (in_array($this->opener, ['j', 'J'])) {
             $this->KVDelim = false;
         }
         $this->opener = '';
     }
     private function parseTernaryElseOrKVDelim() {
+        echo '#######';
         if ($this->opener === '?') {
             if (!$this->ternaryCount) {
                 throw new SyntaxError('Unexpected "ternary else :"');
@@ -779,7 +835,8 @@ class Expression {
             $this->ternaryCount--;
             return ':';
         }
-        if (strstr('jJ', $this->opener)) {
+        if (in_array($this->opener, ['j', 'J'])) {
+            
             if ($this->KVDelim) {
                 throw new SyntaxError('Unexpected '.$token);
             }
@@ -789,13 +846,14 @@ class Expression {
         throw new SyntaxError('Unexpected ":"');   
     }
     private function parseComma($token) {
-        if (strstr('jJ', $this->opener)) {
+        if (in_array($this->opener, ['j', 'J'])) {
             $this->KVDelim = false;
         }
         return ',';
     }
  
     private function parseNumber($token) {
+        echo '@@'.$token.'$$';
         return $token;
     }
 
@@ -857,25 +915,25 @@ class NameDot {
 
     public static function parse($token, $expression=null) {
         self::addToChain($token);
-        self::$exression = $expression;
+        self::$expression = $expression;
 
-        if (preg_match('/^\s*\.', Scipter::$userCode)) { // chain not ends.
+        if (preg_match('/^\s*\./', Scripter::$userCode)) { // chain not ends.
             return '';
         }
 
         if (self::$chain[0]==='.') {
-            return $this->parseLoopMember();
+            return self::parseLoopMember();
         }
 
         if (preg_match('/^this\.?/', self::$chain)) {
-            return $this->parseThis();
+            return self::parseThis();
         }
 
-        if (preg_match('/^\s*\(', Scipter::$userCode)) {
-            return $this->parseFunction();
+        if (preg_match('/^\s*\(/', Scripter::$userCode)) {
+            return self::parseFunction();
         }
 
-        return parseVariable();
+        return self::parseVariable();
     }
     
     private static function parseThis() {
@@ -883,7 +941,7 @@ class NameDot {
         
         self::initChain();
 
-        if (!preg_match('/^\s*\(', Scipter::$userCode)) {
+        if (!preg_match('/^\s*\(', Scripter::$userCode)) {
             if (count($names) === 1) {
                 return '$this';
             }
@@ -904,13 +962,18 @@ class NameDot {
             throw new SyntaxError('depth of loop member "'.self::$chain.'" is not correct.');
         }
 
-        if (preg_match('/^\s*\(', Scipter::$userCode)) {  // function                
+        if (count($names)===1 and in_array($names[0], ['i', 's', 'k'])) {
+            self::initChain();
+            return Statement::loopName($loopDepth, $names[0]);
+        }
+
+        if (preg_match('/^\s*\(/', Scripter::$userCode)) {  // function                
             if ($names[0] === 'h' and count($names) === 2 ) { // loop helper method
                 $helperMethod = strtolower($names[1]);
                 if (!in_array($helperMethod, Scripter::loopHelperMethods())) {
                     throw new FatalError('loop helper method '.$helperMethod.'() is not defined.');
                 }
-                [$a, $i, $s, $k, $v] = Statement::loopNames($loopDepth);
+                ['a'=>$a, 'i'=>$i, 's'=>$s, 'k'=>$k, 'v'=>$v] = Statement::loopNames($loopDepth);
                 
                 self::initChain();
 
@@ -918,7 +981,7 @@ class NameDot {
             } // member object's method
             return loopMember($names, $loopDepth, true);
         } // chain ends.
-        return loopMember($names, $loopDepth, false);
+        return self::loopMember($names, $loopDepth, false);
     }
     
     private static function loopMember($names, $depth, $isMethod) {
@@ -1044,7 +1107,7 @@ class NameDot {
         }
         throw new FatalError(
             empty($path)
-            ? 'constant '.$constant.' is not defined.'
+            ? 'constant "'.$constant.'" is not defined.'
             : 'Neither '.$path.'\\'.$constant.' nor '.$path.'::'.$constant.' is defined.'
         );
     }
@@ -1060,10 +1123,10 @@ class NameDot {
         return $constantChain;
     }
     private static function isConstantName($token) {
-        return preg_match('/\P{Lu}/', $token) and !preg_match('/\P{Ll}/', $token);
+        return preg_match('/\p{Lu}/u', $token) and !preg_match('/\p{Ll}/u', $token);
     }
 
     private static function isClassName($token) {
-        return preg_match('/^\P{Lu}/', $name) and preg_match('/\P{Ll}/', $token);
+        return preg_match('/^\p{Lu}/u', $token) and preg_match('/\p{Ll}/u', $token);
     }
 }
