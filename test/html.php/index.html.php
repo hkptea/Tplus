@@ -1,4 +1,4 @@
-<?php /* Tplus 1.0 Beta 2023-01-16 21:14:13 D:\Work\tpl\test\html\index.html 000007713 */ ?>
+<?php /* Tplus 1.0 Beta 2023-01-16 23:10:33 D:\Work\tpl\test\html\index.html 000007712 */ ?>
 <html>
 <head>
     <title>welcome!</title>
@@ -324,7 +324,7 @@
 	
 	</td>
 	<td>
-		456 789	
+		456 bbb
 	</td>
 </tr>
 
