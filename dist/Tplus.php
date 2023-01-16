@@ -24,15 +24,17 @@ class Tplus {
 
         } else if (!is_file($scriptPath)) {
             trigger_error(
-                "Tplus config 'ScriptCheck' is off and Tplus cannot find <b> ".$scriptPath.'</b>',
+                "Tpl config 'ScriptCheck' is off and Tplus cannot find <b> ".$scriptPath.'</b>',
                 E_USER_ERROR
             );
         }
 
-		//ob_start();
+		ob_start();
         $V = &$this->vals;
 		include $scriptPath;
-        //return ob_get_clean();
+        $fetch = ob_get_contents();
+        ob_end_clean();
+        return $fetch;
     }
 
     private function script($htmlPath, $scriptPath) {
@@ -58,7 +60,7 @@ class Tplus {
     private function isScriptValid($htmlPath, $scriptPath) {        
 		if (!is_file($htmlPath)) {
 			trigger_error(
-                "Tplus config 'ScriptCheck' is on and Tplus cannot find <b> ".$htmlPath.'</b>', 
+                "Tpl config 'ScriptCheck' is on and Tplus cannot find <b> ".$htmlPath.'</b>', 
                 E_USER_ERROR
             );
 		}
@@ -84,7 +86,7 @@ class Tplus {
     }
     private function scriptHeader($htmlPath) {
 		$fileMTime = @date('Y-m-d H:i:s', filemtime($htmlPath));
-		return '<?php /* Tplus '.$fileMTime.' '.realpath($htmlPath).' ';
+		return '<?php /* Tplus 1.0 Beta '.$fileMTime.' '.realpath($htmlPath).' ';
     }
 }
 
@@ -100,11 +102,8 @@ class TplusValWrapper {
             static::$instance = new static;
         }
         static::$instance->val = $val;
+        return static::$instance;
     }
-
-    /*protected function __construct($val) {
-        $this->val = $val;
-    }*/
 
     protected function iterate() {
 		$args = func_get_args();
@@ -137,18 +136,23 @@ class TplusValWrapper {
     }
 
     public function substr($a, $b=null) {
-        return substr($this->val, $a, $b);
+        //echo '@@'.$this->val.'##';
+        //echo '@@'.$a.':'.$b.';'.substr($this->val, $a, $b).'##';
+        $s = $this->val;
+        return substr($s, $a, $b);
     }
 
     public function concat() {
         return $this->val . implode('',func_get_args());
     }
+
+    
     //format round ceil floor
 }
 
 class TplusLoopHelper {
 
-    protected $instance;
+    static protected $instance;
 
     public static function _o($i, $s, $k, $v) {
         if (empty(static::$instance)) {
@@ -158,6 +162,7 @@ class TplusLoopHelper {
         static::$instance->s = $s;
         static::$instance->k = $k;
         static::$instance->v = $v;
+        return static::$instance;
     }
 }
 

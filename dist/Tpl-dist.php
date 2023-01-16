@@ -47,7 +47,8 @@ class TplValWrapper extends TplusValWrapper {
 
 	public function shuffle() {
 		if (is_array($this->val)) {
-			return shuffle($this->val);
+			shuffle($this->val);
+			return $this->val;
 		}
 		return str_shuffle((string)$this->val);
 	}
@@ -67,10 +68,15 @@ class TplValWrapper extends TplusValWrapper {
 		}
 		return number_format($this->val, $decimals, $decimal_separator, $thousands_seperator);
 	}
+	public function double() {
+		if (is_array($this->val)) {
+			return parent::iterate(__FUNCTION__);
+		}
+		return $this->val * 2;
+	}
+
 }
 
-// TplValWrapper::_o(.......)
-// @todo apply singleton
 
 class TplLoopHelper extends TplusLoopHelper {
 
@@ -79,13 +85,10 @@ class TplLoopHelper extends TplusLoopHelper {
 	protected $k;
 	protected $v;
 
-	public function IsEven() {
+	public function isEven() {
 		return $this->i % 2 ? true : false;
 	}
-	public function IsLast() {
+	public function isLast() {
 		return $this->i + 1 == $this->s;
 	}
 }
-
-// TplLoopHelper::_o($i, $s, $k, $v)->IsEven()
-// singleton.  loop
