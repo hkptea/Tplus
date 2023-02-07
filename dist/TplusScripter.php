@@ -1,13 +1,13 @@
 <?php
 /**
     ------------------------------------------------------------------------------
-    Tplus 1.0 Beta
-    Released 2023-01-16
+    Tplus 1.0 Beta 2
+    Released 2023-02-07
 
     
     The MIT License (MIT)
     
-    Copyright: (C) 2022 Hyeonggil Park
+    Copyright: (C) 2023 Hyeonggil Park
 
     Permission is hereby granted, free of charge, to any person obtaining a copy
     of this software and associated documentation files (the "Software"), to deal
@@ -64,7 +64,7 @@ class Scripter {
     }
 
     private static function saveScript($scriptRoot, $scriptPath, $sizePad, $header, $script) {
-        $scriptRoot = preg_replace('~\\\\+~', '/', $scriptRoot);
+        $scriptRoot = preg_replace(['~\\\\+~','~/$~'], ['/',''], $scriptRoot);
 
         if (!is_dir($scriptRoot)) {
             throw new FatalError('script root '.$scriptRoot.' does not exist');
@@ -77,12 +77,12 @@ class Scripter {
         }
 
         $filePerms  = fileperms($scriptRoot);
-        $scriptPath = preg_replace('~\\\\+~', '/', $scriptPath);
-        $scriptRelPath  = substr($scriptPath, strlen($scriptRoot));
+        $scriptPath = preg_replace('~[/\\\\]+~', '/', $scriptPath);
+        $scriptRelPath  = substr($scriptPath, strlen($scriptRoot)+1);
         $scriptRelPathParts = explode('/', $scriptRelPath);
         $filename = array_pop($scriptRelPathParts);
         $path = $scriptRoot;
-        
+
         foreach ($scriptRelPathParts as $dir) {
             $path .= '/'.$dir;
             if (!is_dir($path)) {
@@ -98,7 +98,7 @@ class Scripter {
         $header .= str_pad((string)$scriptSize, $sizePad, '0', STR_PAD_LEFT) . $headerPostfix;
         $script = $header . $script;
         $scriptFile = $path.'/'.$filename;
-        
+
         if (!file_put_contents($scriptFile, $script, LOCK_EX)) {
             throw new FatalError('fail to write file '.$scriptFile.' check permission or unknown problem.');
         }

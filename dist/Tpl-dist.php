@@ -77,7 +77,6 @@ class TplValWrapper extends TplusValWrapper {
 
 }
 
-
 class TplLoopHelper extends TplusLoopHelper {
 
 	protected $i;

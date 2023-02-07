@@ -104,3 +104,5 @@ $vals = [
 
 
 echo Tpl::get('index.html', $vals);
+
+echo Tpl::get('subdir/file.html', $vals);

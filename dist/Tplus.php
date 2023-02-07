@@ -86,7 +86,7 @@ class Tplus {
     }
     private function scriptHeader($htmlPath) {
 		$fileMTime = @date('Y-m-d H:i:s', filemtime($htmlPath));
-		return '<?php /* Tplus 1.0 Beta '.$fileMTime.' '.realpath($htmlPath).' ';
+		return '<?php /* Tplus 1.0 Beta 2 '.$fileMTime.' '.realpath($htmlPath).' ';
     }
 }
 
