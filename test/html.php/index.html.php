@@ -1,4 +1,4 @@
-<?php /* Tplus 1.0.3 2023-03-31 22:06:49 D:\Work\Tplus\test\html\index.html 000007861 */ ?>
+<?php /* Tplus 1.0.3 2023-03-31 23:58:50 D:\Work\Tplus\test\html\index.html 000007840 */ ?>
 <html>
 <head>
     <title>welcome!</title>
@@ -11,8 +11,6 @@
 
 
 	
-	<?= $V["lsadkfj"] ?>
-
 <tr>
 	<th>
 		문서 항목 번호
@@ -394,7 +392,7 @@
 	<?= \TplValWrapper::_o(\TplValWrapper::_o($V["article"])->esc())->nl2br() ?> <br/>
 
 <?php $L1=$V["product"];if (is_array($L1) and !empty($L1)) {$L1s=count($L1);$L1i=-1;foreach($L1 as $L1k=>$L1v) { ++$L1i; ?>
-	<?= $L1v->code() ?> <?= \TplValWrapper::_o(\TplValWrapper::_o($L1v->name())->substr(2))->ucfirst() ?> <?= $L1v->price() ?><br/>
+	<?= $L1v->code() ?> <?= \TplValWrapper::_o(\TplValWrapper::_o($L1v->name())->substr(0,3))->ucfirst() ?> <?= $L1v->price() ?><br/>
 <?php }} ?>
 
 
