@@ -1,8 +1,8 @@
 <?php
 /**
     ------------------------------------------------------------------------------
-    Tplus 1.0 Beta 2
-    Released 2023-02-07
+    Tplus 1.0.3 
+    Released 2023-03-31
 
     
     The MIT License (MIT)
@@ -952,8 +952,9 @@ class NameDot {
         if (preg_match('/^this\.?/', self::$chain)) {
             return self::parseThis();
         }
-        if (preg_match('/^GET\.?/', self::$chain)) {
-            return self::parseGET();
+
+        if (preg_match('/^(GET|SERVER|COOKIE|SESSION|GLOBALS)\.?/', self::$chain)) {
+            return self::parseAutoGlobals();
         }
 
         if (preg_match('/^\s*\(/', Scripter::$userCode)) {
@@ -963,17 +964,32 @@ class NameDot {
         return self::parseVariable();
     }
 
-    private static function parseGET() {
-        $names = explode('.', self::$chain);
-        if (count($names)!=2) {
-            throw new SyntaxError('Unexpected code: '.self::$chain);
-        } 
+    private static function parseAutoGlobals() {
         if (self::isFunc()) {
             throw new SyntaxError('Unexpected code: '.self::$chain.'()');
         }
+
+        $names = explode('.', self::$chain);
+        $global = array_shift($names);
+
+        if ($global == 'GLOBALS') {
+            if (empty($names)) {
+                throw new SyntaxError('Unexpected code: '.self::$chain);    
+            }
+            $script = '$'.$global;
+            foreach ($names as $name) {
+                $script .= '["'.$name.'"]';
+            }
+
+        } else {    // GET SERVER COOKIE SESSION
+            if (count($names) != 1) {
+                throw new SyntaxError('Unexpected code: '.self::$chain);
+            }
+            $script = '$_'.$global.'["'.$names[0].'"]';
+        } 
         
         self::initChain();
-        return '$_GET["'.$names[1].'"]';
+        return $script;
     }
     
     private static function parseThis() {
@@ -1089,27 +1105,6 @@ class NameDot {
             return $script;
         }
     }
-
-    /*private static function loopMember($names, $depth, $isMethod) {
-
-        if ($isMethod) {
-            $method = array_pop($names);
-        }
-
-        if (!empty($names) and $names[0]==='v') {
-            array_shift($names);
-        }
-
-        $script = Statement::loopName($depth, 'v');
-
-        foreach ($names as $name) {
-            $script .= '["'.$name.'"]';
-        }
-
-        self::initChain();
-
-        return $isMethod ? $script.'->'.$method : $script;
-    }*/
 
     private static function parseFunction() {
         // 1. function

@@ -6,25 +6,32 @@ class Tpl {
 	private static function config() {
 		return [
 			/**
-				(1/3) template directory 
+				(1/4) template directory 
 			*/
 			'HtmlRoot' => './html/',
 
 			/**
-				(2/3) template script directory 
-				      which needs write-permission of web server. 
+				(2/4) template script directory 
+				      which needs rwx permission of web server. 
 			*/
     		'HtmlScriptRoot' => './html.php/',
 
 			/**
-				(3/3) script check
+				(3/4) script check
 					true : check  template file and script it if necessary.
 					false: ignore template file and just use script file.
 
 					TIP: use your code for checking server mode.
 					e.g. 'ScriptCheck' => $GLOBALS['server_mode']=='development' ? true : false;
 			*/
-			'ScriptCheck' => true
+			'ScriptCheck' => true,
+
+			/**
+				(4/4) assign check					
+					Setting to 'false' will ignore unassigned Tplus variables
+						and do not trigger Notice or Warning.
+			*/
+			'AssignCheck' => true
 		];
 	}
 

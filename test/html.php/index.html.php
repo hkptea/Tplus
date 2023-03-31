@@ -1,4 +1,4 @@
-<?php /* Tplus 1.0 Beta 2 2023-01-16 23:10:33 D:\Work\tpl\test\html\index.html 000007714 */ ?>
+<?php /* Tplus 1.0.3 2023-03-31 22:06:49 D:\Work\Tplus\test\html\index.html 000007861 */ ?>
 <html>
 <head>
     <title>welcome!</title>
@@ -8,6 +8,11 @@
 </head>
 <body>
 <table>
+
+
+	
+	<?= $V["lsadkfj"] ?>
+
 <tr>
 	<th>
 		문서 항목 번호
@@ -389,7 +394,7 @@
 	<?= \TplValWrapper::_o(\TplValWrapper::_o($V["article"])->esc())->nl2br() ?> <br/>
 
 <?php $L1=$V["product"];if (is_array($L1) and !empty($L1)) {$L1s=count($L1);$L1i=-1;foreach($L1 as $L1k=>$L1v) { ++$L1i; ?>
-	<?= $L1v->code() ?> <?= \TplValWrapper::_o(\TplValWrapper::_o($L1v->name())->substr(0,3))->ucfirst() ?> <?= $L1v->price() ?><br/>
+	<?= $L1v->code() ?> <?= \TplValWrapper::_o(\TplValWrapper::_o($L1v->name())->substr(2))->ucfirst() ?> <?= $L1v->price() ?><br/>
 <?php }} ?>
 
 
@@ -430,6 +435,14 @@
 </table>
 
 
+<br/>
+<br/>
+[=SERVER.PHP_SELF]:  <?= $_SERVER["PHP_SELF"] ?> 
+<br/>
+<br/>
+[=GLOBALS.me]:  <?= $GLOBALS["me"] ?> 
+<br/>
+<br/>
 	
 
 </body>

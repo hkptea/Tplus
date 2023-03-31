@@ -2,6 +2,9 @@
 include '../dist/Tpl-dist.php';
 const MY_CONST = 111;
 const MY_CONST_ARRAY= ['a'=>1, 'b'=> 2, 'c'=>3];
+
+$me = 'I\'m global';
+
 $country = [
 	[
 		'name'=>'South Korea',

@@ -7,6 +7,9 @@
 </head>
 <body>
 <table>
+
+
+	
 <tr>
 	<th>
 		문서 항목 번호
@@ -399,7 +402,7 @@
 	[= article.esc().nl2br()] <br/>
 
 [@ product]
-	[=.code()] [=.name().substr(0,3).ucfirst()] [=.price()]<br/>
+	[=.code()] [=.name().substr(2).ucfirst()] [=.price()]<br/>
 [/]
 
 
@@ -440,6 +443,14 @@
 </table>
 
 
+<br/>
+<br/>
+[\=SERVER.PHP_SELF]:  [=SERVER.PHP_SELF] 
+<br/>
+<br/>
+[\=GLOBALS.me]:  [=GLOBALS.me] 
+<br/>
+<br/>
 	
 
 </body>

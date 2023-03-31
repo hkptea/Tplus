@@ -6,6 +6,7 @@ class Tplus {
 
     private $config;
     private $vals=[];
+    private $phpReport;
 
     public function __construct($config) {
         $this->config = $config;
@@ -29,12 +30,30 @@ class Tplus {
             );
         }
 
-		ob_start();
         $V = &$this->vals;
+        ob_start();
+        $this->stopAssignCheck();
 		include $scriptPath;
-        $fetch = ob_get_contents();
-        ob_end_clean();
-        return $fetch;
+        $this->startAssignCheck();
+        return ob_get_clean();
+    }
+
+    private function stopAssignCheck() {
+        if ($this->checkAssign()) {
+            return;
+        }
+        $this->phpReport = error_reporting();
+        $ErrorBit = version_compare(phpversion(), '8.0.0', '<') ? E_NOTICE : E_WARNING;
+        error_reporting($this->phpReport & ~$ErrorBit);
+    }
+    private function startAssignCheck() {
+        if ($this->checkAssign()) {
+            return;
+        }
+        error_reporting($this->phpReport);
+    }
+    private function checkAssign() {
+        return !isset($this->config['AssignCheck']) or $this->config['AssignCheck']==true;
     }
 
     private function script($htmlPath, $scriptPath) {
@@ -86,7 +105,7 @@ class Tplus {
     }
     private function scriptHeader($htmlPath) {
 		$fileMTime = @date('Y-m-d H:i:s', filemtime($htmlPath));
-		return '<?php /* Tplus 1.0 Beta 2 '.$fileMTime.' '.realpath($htmlPath).' ';
+		return '<?php /* Tplus 1.0.3 '.$fileMTime.' '.realpath($htmlPath).' ';
     }
 }
 
@@ -136,17 +155,13 @@ class TplusValWrapper {
     }
 
     public function substr($a, $b=null) {
-        //echo '@@'.$this->val.'##';
-        //echo '@@'.$a.':'.$b.';'.substr($this->val, $a, $b).'##';
-        $s = $this->val;
-        return substr($s, $a, $b);
+        return is_null($b) ? substr($this->val, $a) : substr($this->val, $a, $b);
     }
 
     public function concat() {
         return $this->val . implode('',func_get_args());
     }
-
-    
+  
     //format round ceil floor
 }
 
